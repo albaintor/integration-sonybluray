@@ -1,0 +1,44 @@
+{
+	"driver_id": "sonybluray_driver",
+	"version": "1.0.2",
+	"min_core_api": "0.20.0",
+	"name": { "en": "Sony Bluray" },
+	"icon": "custom:sony.png",
+	"description": {
+		"en": "Control your Sony Bluray with Remote Two.",
+		"de": "Steuere Sony Bluray mit Remote Two.",
+		"fr": "Contrôler votre Sony Bluray avec Remote Two."
+	},
+	"developer": {
+		"name": "Albaintor",
+		"email": "albaintor@github.com",
+		"url": "https://github.com/albaintor"
+  	},
+  	"home_page": "https://github.com/albaintor/integration-sonybluray",
+	"setup_data_schema": {
+		"title": {
+			"en": "Integration setup",
+			"de": "Integration setup",
+			"fr": "Configuration de l'intégration"
+		},
+		"settings": [
+			{
+				"id": "info",
+				"label": {
+					"en": "Setup process",
+					"de": "Setup Fortschritt",
+					"fr": "Progression de la configuration"
+				},
+				"field": {
+					"label": {
+						"value": {
+							"en": "The integration will discover your Sony Bluray on your network. Please make sure that your Sony Bluray is powered on and that no old pairing request is shown.\nIf pairing continuously fails, restart your Sony Bluray and try again.",
+                            "fr": "L'intégration découvrira votre lecteur Bluray Sony sur votre réseau.\nSi l'appairage échoue systématiquement, redémarrez votre lecteur Sony Bluray et réessayez"
+						}
+					}
+				}
+			}
+		]
+	},
+	"release_date": "2024-05-07"
+}
