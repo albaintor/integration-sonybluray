@@ -166,6 +166,8 @@ class SonyMediaPlayer(MediaPlayer):
             return await self._device.send_key("VolumeDown")
         elif cmd_id == Commands.MUTE_TOGGLE:
             return await self._device.send_key("Mute")
+        elif cmd_id == "POWER":
+            return await self._device.toggle()
         elif cmd_id in self.options[Options.SIMPLE_COMMANDS]:
             return await self._device.send_key(SONY_SIMPLE_COMMANDS[cmd_id])
         else:

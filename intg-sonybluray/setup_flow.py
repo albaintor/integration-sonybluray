@@ -7,10 +7,14 @@ Setup flow for Sony Bluray integration.
 
 import asyncio
 import logging
+import os
+import socket
 from enum import IntEnum
 
+from sonyapilib.device import SonyDevice, AuthenticationResult
+
 import config
-from sonyapilib.ssdp import SSDPDiscovery
+from discover import async_identify_sonybluray_devices
 from client import SonyBlurayDevice
 from config import DeviceInstance
 from ucapi import (
@@ -25,7 +29,7 @@ from ucapi import (
     UserDataResponse,
 )
 
-from const import States
+from const import States, IRCC_PORT, DMR_PORT, APP_PORT
 
 _LOG = logging.getLogger(__name__)
 
@@ -37,18 +41,23 @@ class SetupSteps(IntEnum):
     CONFIGURATION_MODE = 1
     DISCOVER = 2
     DEVICE_CHOICE = 3
+    PAIRING_MODE = 4
 
 
 _setup_step = SetupSteps.INIT
 _discovered_devices: list[dict] = []
 _cfg_add_device: bool = False
+_sony_device: SonyDevice | None = None
+_device_name = "Sony Bluray"
+_always_on = False
+_client_name = "Sony Bluray"
 _user_input_discovery = RequestUserInput(
     {"en": "Setup mode", "de": "Setup Modus"},
     [
         {
             "field": {"text": {"value": ""}},
             "id": "address",
-            "label": {"en": "Endpoint", "de": "Adresse", "fr": "Adresse"},
+            "label": {"en": "Address", "de": "Adresse", "fr": "Adresse"},
         },
         {
             "id": "info",
@@ -91,6 +100,8 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
             return await _handle_discovery(msg)
         if _setup_step == SetupSteps.DEVICE_CHOICE and "choice" in msg.input_values:
             return await handle_device_choice(msg)
+        if _setup_step == SetupSteps.PAIRING_MODE:
+            return await handle_pairing(msg)
         _LOG.error("No or invalid user response was received: %s", msg)
     elif isinstance(msg, AbortDriverSetup):
         _LOG.info("Setup was aborted with code: %s", msg.error)
@@ -252,22 +263,10 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
 
     if address:
         _LOG.debug("Starting manual driver setup for %s", address)
-        try:
-            # simple connection check
-            device = SonyBlurayDevice(device_config=DeviceInstance(id=address, address=address,
-                                                                   name="SonyBluray", always_on=False))
-            await device.update()
-            if device.state == States.UNKNOWN:
-                _LOG.error("Cannot connect to manually entered address %s", address)
-                return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
-            dropdown_items.append({"id": address, "label": {"en": f"Sony [{address}]"}})
-        except Exception as ex:
-            _LOG.error("Cannot connect to manually entered address %s: %s", address, ex)
-            return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
+        dropdown_items.append({"id": address, "label": {"en": f"Sony [{address}]"}})
     else:
         _LOG.debug("Starting auto-discovery driver setup")
-        ssdp = SSDPDiscovery()
-        devices = ssdp.discover(timeout=5)
+        devices = await async_identify_sonybluray_devices()
         _LOG.debug("Discovered Sony devices %s", devices)
         _discovered_devices = devices
         for device in devices:
@@ -297,6 +296,42 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
             },
             {
+                "id": "ircc_port",
+                "label": {
+                    "en": "IRCC port number",
+                    "fr": "Numéro de port IRCC",
+                },
+                "field": {
+                    "number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
+            {
+                "id": "dmr_port",
+                "label": {
+                    "en": "DMR port number",
+                    "fr": "Numéro de port DMR",
+                },
+                "field": {
+                    "number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
+            {
+                "id": "app_port",
+                "label": {
+                    "en": "Application port number",
+                    "fr": "Numéro de port application",
+                },
+                "field": {
+                    "number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
+            {
+                "field": {"text": {"value": ""}},
+                "id": "password_key",
+                "label": {"en": "Password key (leave blank if unknown)",
+                          "fr": "Clé du mot de passe (laisser vide si inconnu)"},
+            },
+            {
                 "id": "always_on",
                 "label": {
                     "en": "Keep connection alive (faster initialization, but consumes more battery)",
@@ -308,7 +343,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     )
 
 
-async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupError:
+async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | SetupComplete | SetupError:
     """
     Process user data response in a setup process.
 
@@ -318,39 +353,136 @@ async def handle_device_choice(msg: UserDataResponse) -> SetupComplete | SetupEr
     :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
     """
     global _discovered_devices
-    host = msg.input_values["choice"]
-    always_on = msg.input_values.get("always_on") == "true"
-    device_name = "Sony"
-    if _discovered_devices:
-        for device in _discovered_devices:
-            if device.get('host') == host:
-                device_name = f"{device.get('manufacturer')} {device.get('friendlyName')}"
+    global _sony_device
+    global _always_on
+    global _setup_step
+    global _device_name
+    global _client_name
 
-    _LOG.debug(f"Chosen Sony Bluray: {device_name} {host}. Trying to connect and retrieve device information...")
+    _host = msg.input_values["choice"]
+    _password_key = msg.input_values.get("password_key", None)
+    _always_on = msg.input_values.get("always_on") == "true"
+
+    try:
+        _ircc_port = int(msg.input_values.get("ircc_port", IRCC_PORT))
+        _dmr_port = int(msg.input_values.get("dmr_port", DMR_PORT))
+        _app_port = int(msg.input_values.get("app_port", APP_PORT))
+    except ValueError:
+        return SetupError(error_type=IntegrationSetupError.OTHER)
+
+    _device_name = "Sony Bluray"
+    if _discovered_devices:
+        for _sony_device in _discovered_devices:
+            if _sony_device.get('host') == _host:
+                _device_name = f"Sony {_sony_device.get('friendlyName')}"
+
+    _LOG.debug(f"Chosen Sony Bluray: {_device_name} {_host}. Trying to connect and retrieve device information...")
     try:
         # simple connection check
-        device = SonyBlurayDevice(device_config=DeviceInstance(id=host, address=host,
-                                                               name=device_name, always_on=always_on))
-        await device.update()
-        if device.state == States.UNKNOWN:
-            _LOG.error("Cannot connect to manually entered address %s", host)
+        _client_name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
+        if _client_name is None:
+            _client_name = "Sony"
+        _sony_device = SonyDevice(host=_host, nickname=_client_name, ircc_port=_ircc_port, dmr_port=_dmr_port,
+                                  app_port=_app_port,
+                                  psk=_password_key)
+
+        register_result = _sony_device.register()
+        if register_result == AuthenticationResult.PIN_NEEDED:
+            _setup_step = SetupSteps.PAIRING_MODE
+            return RequestUserInput(
+                {
+                    "en": "Please enter the displayed PIN code",
+                    "fr": "Entrez le code PIN affiché à l'écran",
+                },
+                [
+                    {
+                        "field": {"text": {"value": "0000"}},
+                        "id": "pin_code",
+                        "label": {"en": "PIN code", "fr": "Code PIN"},
+                    },
+                ],
+            )
+        elif register_result == AuthenticationResult.ERROR:
+            _LOG.error("Cannot connect the device %s", _host)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
-        identifier = host
+
+        identifier = _sony_device.mac
+        if not identifier:
+            identifier = _host
+
     except Exception as ex:
-        _LOG.error("Cannot connect to %s: %s", host, ex)
+        _LOG.error("Cannot connect to %s: %s", _host, ex)
         return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
 
-    assert device
+    assert _sony_device
     assert identifier
 
     unique_id = identifier
 
     if unique_id is None:
-        _LOG.error("Could not get mac address of host %s: required to create a unique device", host)
+        _LOG.error("Could not get mac address of host %s: required to create a unique device", _host)
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=device_name, address=host,always_on=always_on)
+        DeviceInstance(id=unique_id, name=_device_name, address=_host, always_on=_always_on, mac_address=_sony_device.mac,
+                       password_key=_password_key, ircc_port=_ircc_port, dmr_port=_dmr_port, app_port=_app_port,
+                       pin_code=None, client_name=_client_name)
+    )  # triggers Sony BR instance creation
+    config.devices.store()
+
+    # AVR device connection will be triggered with subscribe_entities request
+
+    await asyncio.sleep(1)
+
+    _LOG.info("Setup successfully completed for %s (%s)", identifier, unique_id)
+    return SetupComplete()
+
+
+async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
+    """
+    Process user data response in a setup process.
+
+    Driver setup callback to provide requested user data during the setup process.
+
+    :param msg: response data from the requested user data
+    :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
+    """
+    global _discovered_devices
+    global _sony_device
+    global _always_on
+    global _device_name
+    global _client_name
+    pin_code = msg.input_values.get("pin_code", None)
+
+    _LOG.debug(f"Registering device with pin code: {_sony_device.host} {pin_code}...")
+    try:
+        if not _sony_device.send_authentication(pin_code):
+            _LOG.error("Wrong pin code, cannot connect the device %s", _sony_device.host)
+            return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
+        identifier = _sony_device.mac
+        if not identifier:
+            identifier = _sony_device.host
+    except Exception as ex:
+        _LOG.error("Cannot connect to %s: %s", _sony_device.host, ex)
+        return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
+
+    assert _sony_device
+    assert identifier
+
+    unique_id = identifier
+
+    if unique_id is None:
+        _LOG.error("Could not get mac address of host %s: required to create a unique device", _sony_device.host)
+        return SetupError(error_type=IntegrationSetupError.OTHER)
+
+    _LOG.error("Device registered successfully %s (%s)", _sony_device.host, _sony_device.mac)
+
+    config.devices.add(
+        DeviceInstance(id=unique_id, name=_device_name, address=_sony_device.host,
+                       always_on=_always_on, mac_address=_sony_device.mac,
+                       password_key=_sony_device.psk, ircc_port=_sony_device.ircc_port, dmr_port=_sony_device.dmr_port,
+                       app_port=_sony_device.app_port,
+                       pin_code=pin_code, client_name=_client_name)
     )  # triggers Sony BR instance creation
     config.devices.store()
 

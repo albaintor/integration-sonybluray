@@ -8,11 +8,12 @@ from asyncio import Lock, CancelledError
 import logging
 from enum import IntEnum
 
+import requests
 import ucapi.media_player
 from config import DeviceInstance
 from pyee import AsyncIOEventEmitter
 from ucapi.media_player import Attributes
-from sonyapilib.device import SonyDevice, AuthenticationResult
+from sonyapilib.device import SonyDevice, AuthenticationResult, HttpMethod, DeviceState
 from const import States
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,10 +44,8 @@ def cmd_wrapper(
     async def wrapper(obj: _SonyBlurayDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
         """Wrap all command methods."""
         try:
-            res = await func(obj, *args, **kwargs)
+            await func(obj, *args, **kwargs)
             await obj.start_polling()
-            if res[0] == 'error':
-                return ucapi.StatusCodes.BAD_REQUEST
             return ucapi.StatusCodes.OK
         except Exception as exc:
             # If Kodi is off, we expect calls to fail.
@@ -63,7 +62,7 @@ def cmd_wrapper(
             # Kodi not connected, launch a connect task but
             # don't wait more than 5 seconds, then process the command if connected
             # else returns error
-            connect_task = obj.event_loop.create_task(obj.connect())
+            connect_task = obj._event_loop.create_task(obj.connect())
             await asyncio.sleep(0)
             try:
                 async with asyncio.timeout(5):
@@ -74,17 +73,16 @@ def cmd_wrapper(
                 )
                 pass
             else:
-                if not obj._connect_error:
-                    try:
-                        await func(obj, *args, **kwargs)
-                        return ucapi.StatusCodes.OK
-                    except Exception as exc:
-                        log_function(
-                            "Error calling %s on entity %s: %r trying to reconnect",
-                            func.__name__,
-                            obj.id,
-                            exc,
-                        )
+                try:
+                    await func(obj, *args, **kwargs)
+                    return ucapi.StatusCodes.OK
+                except Exception as exc:
+                    log_function(
+                        "Error calling %s on entity %s: %r trying to reconnect",
+                        func.__name__,
+                        obj.id,
+                        exc,
+                    )
             return ucapi.StatusCodes.BAD_REQUEST
         except Exception as ex:
             _LOGGER.error(
@@ -111,21 +109,37 @@ class SonyBlurayDevice(object):
         self._media_duration = 0
         self._update_task = None
         self._update_lock = Lock()
+        self._connected = False
 
     async def connect(self):
         if self._sony_device:
             # await self._sony_device.close()
             self._sony_device = None
+            self._connected = False
+            self._state = States.OFF
 
+        if self._device_config.password_key == '':
+            self._device_config.password_key = None
         self._sony_device = SonyDevice(host=self._device_config.address, app_port=self._device_config.app_port,
                                        ircc_port=self._device_config.ircc_port, dmr_port=self._device_config.dmr_port,
-                                       psk=self._device_config.password_key, nickname=self._device_config.name)
+                                       psk=self._device_config.password_key, nickname=self._device_config.client_name)
         self._sony_device.pin = self._device_config.pin_code
         self._sony_device.mac = self._device_config.mac_address
         if self._device_config.pin_code is None:
-            register_result = await self._sony_device.register()
+            register_result = self._sony_device.register()
             if register_result == AuthenticationResult.PIN_NEEDED:
                 raise ConnectionError("PIN code needed")
+        try:
+            # response = self._sony_device._send_http(self._sony_device.dmr_url, HttpMethod.GET)
+            # if response:
+            #     self._connected = True
+            self._sony_device.init_device()
+
+        except Exception as ex:
+            _LOGGER.debug("Sony device connection error, waiting next call %s", ex)
+        # except requests.exceptions.RequestException as exc:
+        #     _LOGGER.error("Failed to get DMR: %s: %s", type(exc), exc)
+
         self.events.emit(Events.CONNECTED, self.id)
         await self.start_polling()
 
@@ -170,30 +184,37 @@ class SonyBlurayDevice(object):
     async def update(self):
         if self._update_lock.locked():
             return
-
         await self._update_lock.acquire()
-        # _LOGGER.debug("Refresh Panasonic data")
-        if self._sony_device is None:
-            await self.connect()
         update_data = {}
         current_state = self.state
-
-        power_status = await self._sony_device.get_power_status()
-        if not power_status:
-            self._state = States.OFF
-
-        else:
-            self._state = States.ON
-
         try:
-            playback_info = await self._sony_device.get_playing_status()
-            if playback_info == "PLAYING":
-                self._state = States.PLAYING
-            elif playback_info == "PAUSED_PLAYBACK":
-                self._state = States.PAUSED
+            # _LOGGER.debug("Refresh Sony data")
+            if self.state == States.OFF:
+                await self.connect()
+
+            power_status = self._sony_device.get_power_status()
+            if not power_status:
+                self._state = States.OFF
+            else:
+                self._state = States.ON
+                device_state = self._sony_device.get_status()
+                if device_state == DeviceState.OFF:
+                    self._state = States.OFF
+                elif device_state == DeviceState.STOPPED:
+                    self._state = States.ON
+                else:
+                    self._state = States.PLAYING
+
+            # playback_info = self._sony_device.get_playing_status()
+            # NO_MEDIA_PRESENT
+            # if playback_info == "PLAYING":
+            #     self._state = States.PLAYING
+            # elif playback_info == "PAUSED_PLAYBACK":
+            #     self._state = States.PAUSED
         except Exception:
             self._state = States.OFF
 
+        self._update_lock.release()
         if self.state != current_state:
             update_data[Attributes.STATE] = self.state
 
@@ -203,7 +224,7 @@ class SonyBlurayDevice(object):
                 self.id,
                 update_data
             )
-        self._update_lock.release()
+
 
     @property
     def id(self):
@@ -231,7 +252,7 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def send_key(self, key):
-        return self._sony_device._send_command(key)
+        self._sony_device._send_command(key)
 
     @cmd_wrapper
     async def toggle(self):
@@ -260,10 +281,7 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def play_pause(self):
-        if self.state == States.PLAYING:
-            return self._sony_device.pause()
-        else:
-            return self._sony_device.play()
+        return self._sony_device.pause()
 
     @cmd_wrapper
     async def play(self):

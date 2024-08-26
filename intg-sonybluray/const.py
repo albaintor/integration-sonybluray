@@ -7,6 +7,9 @@ from enum import IntEnum
 import ucapi
 from ucapi.ui import DeviceButtonMapping, Buttons, UiPage
 
+IRCC_PORT = 50001
+DMR_PORT = 52323
+APP_PORT = 50202
 
 class States(IntEnum):
     """State of a connected device."""
@@ -113,26 +116,26 @@ SONY_REMOTE_BUTTONS_MAPPING: [DeviceButtonMapping] = [
 
 SONY_REMOTE_UI_PAGES: [UiPage] = [
     {
-        "page_id": "Panasonic commands",
-        "name": "Panasonic commands",
+        "page_id": "Sony commands",
+        "name": "Sony commands",
         "grid": {"width": 4, "height": 6},
         "items": [
-            # {
-            #     "command": {
-            #         "cmd_id": "remote.send",
-            #         "params": {"command": "POWER", "repeat": 1}
-            #     },
-            #     "icon": "uc:power-on",
-            #     "location": {
-            #         "x": 0,
-            #         "y": 0
-            #     },
-            #     "size": {
-            #         "height": 1,
-            #         "width": 1
-            #     },
-            #     "type": "icon"
-            # },
+            {
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "POWER", "repeat": 1}
+                },
+                "icon": "uc:power-on",
+                "location": {
+                    "x": 0,
+                    "y": 0
+                },
+                "size": {
+                    "height": 1,
+                    "width": 1
+                },
+                "type": "icon"
+            },
             {
                 "command": {
                     "cmd_id": "remote.send",
@@ -188,7 +191,7 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
                 },
                 "text": "3D",
                 "location": {
-                    "x": 1,
+                    "x": 2,
                     "y": 1
                 },
                 "size": {
@@ -204,7 +207,7 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
                 },
                 "icon": "uc:stop",
                 "location": {
-                    "x": 2,
+                    "x": 0,
                     "y": 1
                 },
                 "size": {
@@ -220,7 +223,7 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
                 },
                 "text": "Eject",
                 "location": {
-                    "x": 2,
+                    "x": 1,
                     "y": 1
                 },
                 "size": {
@@ -264,8 +267,8 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
         ]
     },
     {
-        "page_id": "Panasonic numbers",
-        "name": "Panasonic numbers",
+        "page_id": "Sony numbers",
+        "name": "Sony numbers",
         "grid": {"height": 4, "width": 3},
         "items": [{
             "command": {

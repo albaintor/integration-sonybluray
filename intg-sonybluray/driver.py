@@ -243,9 +243,6 @@ async def on_avr_update(device_id: str, update: dict[str, Any] | None) -> None:
         device = _configured_devices[device_id]
         update = {
             MediaAttr.STATE: device.state,
-            MediaAttr.MEDIA_POSITION: device.media_position,
-            MediaAttr.MEDIA_DURATION: device.media_duration,
-            MediaAttr.MEDIA_TYPE: MediaType.VIDEO,
         }
     else:
         _LOG.info("[%s] Sony update: %s", device_id, update)
@@ -393,6 +390,7 @@ async def main():
     logging.getLogger("media_player").setLevel(level)
     logging.getLogger("receiver").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+    # logging.getLogger("sonyapilib.device").setLevel(level)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
     for device in config.devices.all():

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Iterator
 
 from ucapi import EntityTypes
+from const import IRCC_PORT, APP_PORT, DMR_PORT
 
 _LOG = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class DeviceInstance:
 
     id: str
     name: str
+    client_name: str
     address: str
     always_on: bool
     password_key: str
@@ -51,10 +53,12 @@ class DeviceInstance:
     mac_address: str
     pin_code: int
 
-    def __init__(self, id, name, address, pin_code, always_on=False, app_port=50202, dmr_port=52323, ircc_port=50001, password_key=None,
+    def __init__(self, id, name, address, pin_code, client_name, always_on=False, app_port=APP_PORT, dmr_port=DMR_PORT,
+                 ircc_port=IRCC_PORT, password_key=None,
                  mac_address=None):
         self.id = id
         self.name = name
+        self.client_name = client_name
         self.address = address
         self.always_on = always_on
         self.password_key = password_key
@@ -151,6 +155,7 @@ class Devices:
                 item.ircc_port = device_instance.ircc_port
                 item.mac_address = device_instance.mac_address
                 item.pin_code = device_instance.pin_code
+                item.client_name = device_instance.client_name
                 return self.store()
         return False
 
