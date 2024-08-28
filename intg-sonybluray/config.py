@@ -52,10 +52,11 @@ class DeviceInstance:
     ircc_port: int
     mac_address: str
     pin_code: int
+    polling: bool
 
     def __init__(self, id, name, address, pin_code, client_name, always_on=False, app_port=APP_PORT, dmr_port=DMR_PORT,
                  ircc_port=IRCC_PORT, password_key=None,
-                 mac_address=None):
+                 mac_address=None, polling=False):
         self.id = id
         self.name = name
         self.client_name = client_name
@@ -67,6 +68,7 @@ class DeviceInstance:
         self.ircc_port = ircc_port
         self.mac_address = mac_address
         self.pin_code = pin_code
+        self.polling = polling
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -156,6 +158,7 @@ class Devices:
                 item.mac_address = device_instance.mac_address
                 item.pin_code = device_instance.pin_code
                 item.client_name = device_instance.client_name
+                item.polling = device_instance.polling
                 return self.store()
         return False
 

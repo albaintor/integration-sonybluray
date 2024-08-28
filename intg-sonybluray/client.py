@@ -141,7 +141,8 @@ class SonyBlurayDevice(object):
         #     _LOGGER.error("Failed to get DMR: %s: %s", type(exc), exc)
 
         self.events.emit(Events.CONNECTED, self.id)
-        await self.start_polling()
+        if self._device_config.polling:
+            await self.start_polling()
 
     async def disconnect(self):
         if self._sony_device:
@@ -181,7 +182,9 @@ class SonyBlurayDevice(object):
 
         self._update_task = None
 
-    async def update(self):
+    async def update(self, deferred_update=0):
+        if deferred_update > 0:
+            await asyncio.sleep(deferred_update)
         if self._update_lock.locked():
             return
         await self._update_lock.acquire()
@@ -239,6 +242,12 @@ class SonyBlurayDevice(object):
         return self._name
 
     @property
+    def has_media_state(self):
+        if self._device_config.polling:
+            return True
+        return False
+
+    @property
     def media_duration(self):
         return self._media_duration
 
@@ -256,20 +265,34 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def toggle(self):
+        if not self._device_config.polling:
+            await self.update()
         if not self.is_on:
             self._sony_device.power(True)
         else:
             self._sony_device.power(False)
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update(10))
+            await self._event_loop.create_task(self.update(20))
 
     @cmd_wrapper
     async def turn_on(self):
+        if not self._device_config.polling:
+            await self.update()
         if not self.is_on:
             self._sony_device.power(True)
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update(10))
+            await self._event_loop.create_task(self.update(20))
 
     @cmd_wrapper
     async def turn_off(self):
+        if not self._device_config.polling:
+            await self.update()
         if self.is_on:
             self._sony_device.power(False)
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update(10))
 
     @cmd_wrapper
     async def channel_up(self):
@@ -281,28 +304,38 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def play_pause(self):
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update())
         return self._sony_device.pause()
 
     @cmd_wrapper
     async def play(self):
-        return self._sony_device.play()
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update())
+        self._sony_device.play()
 
     @cmd_wrapper
     async def pause(self):
-        return self._sony_device.pause()
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update())
+        self._sony_device.pause()
 
     @cmd_wrapper
     async def stop(self):
-        return self._sony_device.stop()
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update())
+        self._sony_device.stop()
 
     @cmd_wrapper
     async def eject(self):
-        return self._sony_device.eject()
+        if not self._device_config.polling:
+            await self._event_loop.create_task(self.update())
+        self._sony_device.eject()
 
     @cmd_wrapper
     async def fast_forward(self):
-        return self._sony_device.forward()
+        self._sony_device.forward()
 
     @cmd_wrapper
     async def rewind(self):
-        return self._sony_device.rewind()
+        self._sony_device.rewind()

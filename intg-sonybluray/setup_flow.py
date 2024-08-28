@@ -50,6 +50,7 @@ _cfg_add_device: bool = False
 _sony_device: SonyDevice | None = None
 _device_name = "Sony Bluray"
 _always_on = False
+_polling = False
 _client_name = "Sony Bluray"
 _user_input_discovery = RequestUserInput(
     {"en": "Setup mode", "de": "Setup Modus"},
@@ -339,6 +340,14 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
                 "field": {"checkbox": {"value": False}},
             },
+            {
+                "id": "polling",
+                "label": {
+                    "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
+                    "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
+                },
+                "field": {"checkbox": {"value": False}},
+            },
         ],
     )
 
@@ -358,10 +367,12 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     global _setup_step
     global _device_name
     global _client_name
+    global _polling
 
     _host = msg.input_values["choice"]
     _password_key = msg.input_values.get("password_key", None)
     _always_on = msg.input_values.get("always_on") == "true"
+    _polling = msg.input_values.get("polling") == "true"
 
     try:
         _ircc_port = int(msg.input_values.get("ircc_port", IRCC_PORT))
@@ -427,7 +438,7 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     config.devices.add(
         DeviceInstance(id=unique_id, name=_device_name, address=_host, always_on=_always_on, mac_address=_sony_device.mac,
                        password_key=_password_key, ircc_port=_ircc_port, dmr_port=_dmr_port, app_port=_app_port,
-                       pin_code=None, client_name=_client_name)
+                       pin_code=None, client_name=_client_name, polling=_polling)
     )  # triggers Sony BR instance creation
     config.devices.store()
 
@@ -453,6 +464,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     global _always_on
     global _device_name
     global _client_name
+    global _polling
     pin_code = msg.input_values.get("pin_code", None)
 
     _LOG.debug(f"Registering device with pin code: {_sony_device.host} {pin_code}...")
@@ -483,7 +495,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
                        always_on=_always_on, mac_address=_sony_device.mac,
                        password_key=_sony_device.psk, ircc_port=_sony_device.ircc_port, dmr_port=_sony_device.dmr_port,
                        app_port=_sony_device.app_port,
-                       pin_code=pin_code, client_name=_client_name)
+                       pin_code=pin_code, client_name=_client_name, polling=_polling)
     )  # triggers Sony BR instance creation
     config.devices.store()
 
