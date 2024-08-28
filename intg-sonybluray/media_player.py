@@ -183,7 +183,7 @@ class SonyMediaPlayer(MediaPlayer):
         attributes = {}
 
         if Attributes.STATE in update:
-            state = update[Attributes.STATE]
+            state = state_from_device(update[Attributes.STATE])
             attributes = self._key_update_helper(Attributes.STATE, state, attributes)
 
         _LOG.debug("MediaPlayer update attributes %s -> %s", update, attributes)
