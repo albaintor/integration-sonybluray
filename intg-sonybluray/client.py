@@ -11,7 +11,7 @@ from enum import IntEnum
 import requests
 import ucapi.media_player
 from config import DeviceInstance
-from pyee import AsyncIOEventEmitter
+from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes
 from sonyapilib.device import SonyDevice, AuthenticationResult, HttpMethod, DeviceState
 from const import States
