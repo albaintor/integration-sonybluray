@@ -847,7 +847,7 @@ class SonyDevice:
             _LOGGER.debug("Wake on lan")
             self.wakeonlan(broadcast)
             # Try using the power on command incase the WOL doesn't work
-            if not self.get_power_status():
+            if not self.get_power_status(timeout=2):
                 # Try using the power on command incase the WOL doesn't work
                 self._send_command('Power')
         else:
