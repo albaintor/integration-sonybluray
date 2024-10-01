@@ -18,7 +18,6 @@ import jsonpickle
 from aiohttp import ClientTimeout
 from aiohttp.web_exceptions import HTTPError
 
-import ssdp
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -203,18 +202,18 @@ class SonyDevice:
     def initialized(self) -> bool:
         return self.api_version != 0
 
-    @staticmethod
-    def discover():
-        """Discover all available devices."""
-        discovery = ssdp.SSDPDiscovery()
-        devices = []
-        for device in discovery.discover(
-                "urn:schemas-sony-com:service:IRCC:1"
-        ):
-            host = device.location.split(":")[1].split("//")[1]
-            devices.append(SonyDevice(host, device.location))
-
-        return devices
+    # @staticmethod
+    # def discover():
+    #     """Discover all available devices."""
+    #     discovery = ssdp.SSDPDiscovery()
+    #     devices = []
+    #     for device in discovery.discover(
+    #             "urn:schemas-sony-com:service:IRCC:1"
+    #     ):
+    #         host = device.location.split(":")[1].split("//")[1]
+    #         devices.append(SonyDevice(host, device.location))
+    #
+    #     return devices
 
     @staticmethod
     async def load_from_json(data):
