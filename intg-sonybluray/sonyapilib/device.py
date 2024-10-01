@@ -553,10 +553,11 @@ class SonyDevice:
         log_errors = kwargs.pop("log_errors", True)
         raise_errors = kwargs.pop("raise_errors", False)
         method = kwargs.pop("method", method.value)
+        timeout = kwargs.pop("timeout", TIMEOUT)
 
         params = {
             "cookies": self.cookies,
-            "timeout": TIMEOUT,
+            "timeout": timeout,
             "headers": self.headers,
         }
         params.update(kwargs)
@@ -798,7 +799,7 @@ class SonyDevice:
 
         return find_in_xml(content, [".//CurrentTransportState"]).text
 
-    def get_power_status(self):
+    def get_power_status(self, timeout=TIMEOUT):
         """Check if the device is online."""
         if self.api_version < 4:
             url = self.actionlist_url
@@ -813,7 +814,8 @@ class SonyDevice:
             resp = self._send_http(urljoin(self.base_url, "system"),
                                    HttpMethod.POST,
                                    json=self._create_api_json(
-                                       "getPowerStatus"))
+                                       "getPowerStatus"),
+                                   timeout=timeout)
             if not resp:
                 return False
             json_data = resp.json()

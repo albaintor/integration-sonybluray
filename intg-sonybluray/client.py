@@ -43,7 +43,8 @@ def cmd_wrapper(
         """Wrap all command methods."""
         try:
             await func(obj, *args, **kwargs)
-            await obj.start_polling()
+            if obj._device_config.polling:
+                await obj.start_polling()
             return ucapi.StatusCodes.OK
         except Exception as exc:
             # If Kodi is off, we expect calls to fail.
@@ -271,35 +272,43 @@ class SonyBlurayDevice(object):
     @cmd_wrapper
     async def toggle(self):
         if not self._device_config.polling:
-            await self.update()
+            power_status = await self._sony_device.get_power_status(timeout=2)
+            if not power_status:
+                self._sony_device.power(True)
+            else:
+                self._sony_device.power(False)
+            await self._event_loop.create_task(self.update(10))
+            await self._event_loop.create_task(self.update(20))
+            return
+
         if not self.is_on:
             self._sony_device.power(True)
         else:
             self._sony_device.power(False)
-        if not self._device_config.polling:
-            await self._event_loop.create_task(self.update(10))
-            await self._event_loop.create_task(self.update(20))
 
-    @cmd_wrapper
-    async def turn_on(self):
+    async def turn_on(self) -> ucapi.StatusCodes:
         _LOGGER.debug("Turn on (state %s)", self.state)
-        self._sony_device.power(True)
-        # if not self._device_config.polling:
-        #     await self.update()
-        if not self.is_on:
+        try:
             self._sony_device.power(True)
-        if not self._device_config.polling:
-            await self._event_loop.create_task(self.update(10))
-            await self._event_loop.create_task(self.update(20))
+            if not self._device_config.polling:
+                await self._event_loop.create_task(self.update(10))
+                await self._event_loop.create_task(self.update(20))
+            return ucapi.StatusCodes.OK
+        except Exception as ex:
+            _LOGGER.debug("Error turn on %s", ex)
+            return ucapi.StatusCodes.SERVER_ERROR
 
     @cmd_wrapper
     async def turn_off(self):
         if not self._device_config.polling:
-            await self.update()
+            power_status = await self._sony_device.get_power_status(timeout=2)
+            if power_status:
+                self._sony_device.power(False)
+            await self._event_loop.create_task(self.update(10))
+            return
+
         if self.is_on:
             self._sony_device.power(False)
-        if not self._device_config.polling:
-            await self._event_loop.create_task(self.update(10))
 
     @cmd_wrapper
     async def channel_up(self):
