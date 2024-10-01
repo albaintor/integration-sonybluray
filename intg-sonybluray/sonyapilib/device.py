@@ -15,9 +15,8 @@ from urllib.parse import (
 )
 
 import jsonpickle
-from aiohttp import ClientTimeout
+from aiohttp import ClientTimeout, ClientResponseError
 from aiohttp.web_exceptions import HTTPError
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -278,12 +277,7 @@ class SonyDevice:
             if action.name == "register":
                 # the authentication is based on the device id and the mac
                 action.url = \
-                    "{0}{1}name={2}&registrationType=initial&deviceId={3}" \
-                        .format(
-                        action.url,
-                        separator,
-                        quote(self.nickname),
-                        quote(self.client_id))
+                    f"{action.url}{separator}name={quote(self.nickname)}&registrationType=initial&deviceId={quote(self.client_id)}"
                 self.api_version = action.mode
                 if action.mode == 3:
                     action.url = action.url + "&wolSupport=true"
@@ -652,24 +646,21 @@ class SonyDevice:
                 raise_errors=True)
             # set the pin to something to make sure init_device is called
             self.pin = 9999
-        except (Exception, HTTPError):
+        except (Exception, HTTPError) as ex:
+            _LOGGER.error("Registration error", ex)
             return AuthenticationResult.ERROR
         else:
             return AuthenticationResult.SUCCESS
-
-    @staticmethod
-    def _handle_register_error(ex):
-        if isinstance(ex, HTTPError) \
-                and ex.status_code == 401:
-            return AuthenticationResult.PIN_NEEDED
-        return AuthenticationResult.ERROR
 
     async def _register_v3(self, registration_action):
         try:
             await self._send_http(registration_action.url,
                                   method=HttpMethod.GET, raise_errors=True)
-        except (Exception, HTTPError) as ex:
-            return self._handle_register_error(ex)
+        except ClientResponseError as ex:
+            _LOGGER.error("Registration v3 error", ex)
+            if ex.status == 401:
+                return AuthenticationResult.PIN_NEEDED
+            return AuthenticationResult.ERROR
         else:
             return AuthenticationResult.SUCCESS
 
@@ -701,14 +692,16 @@ class SonyDevice:
                 #                                  data=json.dumps(authorization),
                 #                                  raise_errors=True)
                 resp = await response.json()
+                _LOGGER.debug("Registration v4 %s", resp)
                 if not resp or resp.get('error'):
                     return AuthenticationResult.ERROR
                 self.cookies = response.cookies
                 return AuthenticationResult.SUCCESS
-
-        except (Exception, HTTPError) as ex:
-            return self._handle_register_error(ex)
-
+        except ClientResponseError as ex:
+            _LOGGER.error("Registration v3 error", ex)
+            if ex.status == 401:
+                return AuthenticationResult.PIN_NEEDED
+            return AuthenticationResult.ERROR
 
     def _add_headers(self):
         """Add headers which all devices need"""
