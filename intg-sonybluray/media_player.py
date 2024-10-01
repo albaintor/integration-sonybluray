@@ -8,13 +8,12 @@ Media-player entity functions.
 import logging
 from typing import Any
 
-import client
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, States, MediaType, Options
+from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, Options
 
-from const import MEDIA_PLAYER_STATE_MAPPING, SONY_SIMPLE_COMMANDS
+from const import SONY_SIMPLE_COMMANDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ class SonyMediaPlayer(MediaPlayer):
             Features.MUTE_TOGGLE
         ]
         attributes = {
-            Attributes.STATE: state_from_device(device.state),
+            Attributes.STATE: device.state,
         }
 
         options = {
@@ -183,7 +182,7 @@ class SonyMediaPlayer(MediaPlayer):
         attributes = {}
 
         if Attributes.STATE in update:
-            state = state_from_device(update[Attributes.STATE])
+            state = update[Attributes.STATE]
             attributes = self._key_update_helper(Attributes.STATE, state, attributes)
 
         _LOG.debug("MediaPlayer update attributes %s -> %s", update, attributes)
@@ -201,14 +200,3 @@ class SonyMediaPlayer(MediaPlayer):
 
         return attributes
 
-
-def state_from_device(client_state: client.States) -> States:
-    """
-    Convert Device state to UC API media-player state.
-
-    :param client_state: Orange STB  state
-    :return: UC API media_player state
-    """
-    if client_state in MEDIA_PLAYER_STATE_MAPPING:
-        return MEDIA_PLAYER_STATE_MAPPING[client_state]
-    return States.UNKNOWN

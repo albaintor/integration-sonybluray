@@ -2,8 +2,6 @@ from datetime import timedelta
 
 __version__ = "1.0.0"
 
-from enum import IntEnum
-
 import ucapi
 from ucapi.ui import DeviceButtonMapping, Buttons, UiPage
 
@@ -11,28 +9,6 @@ IRCC_PORT = 50001
 DMR_PORT = 52323
 APP_PORT = 50202
 
-class States(IntEnum):
-    """State of a connected device."""
-
-    UNKNOWN = 0
-    UNAVAILABLE = 1
-    OFF = 2
-    ON = 3
-    PLAYING = 4
-    PAUSED = 5
-    STOPPED = 6
-
-
-# Mapping of a device state to a media-player entity state
-MEDIA_PLAYER_STATE_MAPPING: dict[States, ucapi.media_player.States] = {
-    States.ON: ucapi.media_player.States.ON,
-    States.OFF: ucapi.media_player.States.OFF,
-    States.PAUSED: ucapi.media_player.States.PAUSED,
-    States.STOPPED: ucapi.media_player.States.PAUSED,
-    States.PLAYING: ucapi.media_player.States.PLAYING,
-    States.UNAVAILABLE: ucapi.media_player.States.UNAVAILABLE,
-    States.UNKNOWN: ucapi.media_player.States.UNKNOWN,
-}
 
 SCAN_INTERVAL = timedelta(seconds=10)
 MIN_TIME_BETWEEN_SCANS = SCAN_INTERVAL

@@ -7,16 +7,12 @@ This module implements a Remote Two integration driver for Orange STB.
 """
 
 import asyncio
-import json
 import logging
 import os
 from typing import Any
 
 import ucapi
-import ucapi.api_definitions as uc
-import websockets
-from ucapi.api import filter_log_msg_data, IntegrationAPI
-from ucapi.media_player import Attributes as MediaAttr, MediaType
+from ucapi.media_player import Attributes as MediaAttr
 
 import client
 import config
@@ -102,14 +98,17 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
     for entity_id in entity_ids:
         entity = api.configured_entities.get(entity_id)
         device_id = device_from_entity_id(entity_id)
+
         if device_id in _configured_devices:
             device = _configured_devices[device_id]
+            attributes = device.attributes
+            _LOG.debug("Subscribe entity %s, attributes : %s", entity_id, attributes)
             if isinstance(entity, media_player.SonyMediaPlayer):
-                api.configured_entities.update_attributes(entity_id,
-          {ucapi.media_player.Attributes.STATE: media_player.state_from_device(device.state)})
+                api.configured_entities.update_attributes(entity_id, attributes)
             if isinstance(entity, remote.SonyRemote):
-                api.configured_entities.update_attributes(entity_id,
-                                                          {ucapi.remote.Attributes.STATE: remote.SONY_REMOTE_STATE_MAPPING.get(device.state)})
+                attributes[ucapi.remote.Attributes.STATE] = remote.SONY_REMOTE_STATE_MAPPING.get(
+                    attributes.get(MediaAttr.STATE, ucapi.remote.States.UNKNOWN))
+                api.configured_entities.update_attributes(entity_id, attributes)
             continue
 
         device = config.devices.get(device_id)
@@ -164,6 +163,9 @@ async def on_device_connected(device_id: str):
             continue
 
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
+            api.configured_entities.update_attributes(
+                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
+            )
             if (configured_entity.attributes[ucapi.media_player.Attributes.STATE]
                     == ucapi.media_player.States.UNAVAILABLE):
                 api.configured_entities.update_attributes(
@@ -351,34 +353,6 @@ async def _async_remove(device: SonyBlurayDevice) -> None:
     device.events.remove_all_listeners()
 
 
-async def patched_broadcast_ws_event(
-        self, msg: str, msg_data: dict[str, Any], category: uc.EventCategory
-) -> None:
-    """
-    Send the given event-message to all connected WebSocket clients.
-
-    If a client is no longer connected, a log message is printed and the remaining
-    clients are notified.
-
-    :param msg: event message name
-    :param msg_data: message data payload
-    :param category: event category
-    """
-    data = {"kind": "event", "msg": msg, "msg_data": msg_data, "cat": category}
-    data_dump = json.dumps(data)
-    data_log = None
-    # filter fields
-    if _LOG.isEnabledFor(logging.DEBUG):
-        data_log = json.dumps(data) if filter_log_msg_data(data) else data_dump
-
-    for websocket in self._clients.copy():
-        if _LOG.isEnabledFor(logging.DEBUG):
-            _LOG.debug("[%s] ->: %s", websocket.remote_address, data_log)
-        try:
-            await websocket.send(data_dump)
-        except websockets.exceptions.WebSocketException:
-            pass
-
 async def main():
     """Start the Remote Two integration driver."""
     logging.basicConfig()
@@ -402,7 +376,6 @@ async def main():
             continue
         _LOOP.create_task(device.update())
 
-    IntegrationAPI._broadcast_ws_event = patched_broadcast_ws_event
     await api.init("driver.json", setup_flow.driver_setup_handler)
 
 

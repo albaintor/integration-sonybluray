@@ -8,13 +8,11 @@ from asyncio import Lock, CancelledError
 import logging
 from enum import IntEnum
 
-import requests
 import ucapi.media_player
 from config import DeviceInstance
 from pyee.asyncio import AsyncIOEventEmitter
-from ucapi.media_player import Attributes
-from sonyapilib.device import SonyDevice, AuthenticationResult, HttpMethod, DeviceState
-from const import States
+from ucapi.media_player import Attributes, States
+from sonyapilib.device import SonyDevice, AuthenticationResult, DeviceState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -228,6 +226,13 @@ class SonyBlurayDevice(object):
                 update_data
             )
 
+    @property
+    def attributes(self) -> dict[str, any]:
+        """Return the device attributes."""
+        updated_data = {
+            Attributes.STATE: self.state
+        }
+        return updated_data
 
     @property
     def id(self):
@@ -257,7 +262,7 @@ class SonyBlurayDevice(object):
 
     @property
     def is_on(self):
-        return self.state in [States.PAUSED, States.STOPPED, States.PLAYING, States.ON]
+        return self.state in [States.PAUSED, States.PLAYING, States.ON]
 
     @cmd_wrapper
     async def send_key(self, key):

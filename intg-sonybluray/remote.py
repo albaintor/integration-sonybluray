@@ -12,18 +12,19 @@ from config import create_entity_id, DeviceInstance
 from client import SonyBlurayDevice
 from ucapi import EntityTypes, Remote, StatusCodes
 from ucapi.remote import Attributes, Commands, States as RemoteStates, Options, Features
-from const import SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, States, KEYS, SONY_SIMPLE_COMMANDS
+from ucapi.media_player import States as MediaStates
+from const import SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, KEYS, SONY_SIMPLE_COMMANDS
 
 _LOG = logging.getLogger(__name__)
 
 SONY_REMOTE_STATE_MAPPING = {
-    States.UNKNOWN: RemoteStates.UNKNOWN,
-    States.UNAVAILABLE: RemoteStates.UNAVAILABLE,
-    States.OFF: RemoteStates.OFF,
-    States.ON: RemoteStates.ON,
-    States.PLAYING: RemoteStates.ON,
-    States.PAUSED: RemoteStates.ON,
-    States.STOPPED: RemoteStates.ON
+    MediaStates.UNKNOWN: RemoteStates.UNKNOWN,
+    MediaStates.UNAVAILABLE: RemoteStates.UNAVAILABLE,
+    MediaStates.OFF: RemoteStates.OFF,
+    MediaStates.ON: RemoteStates.ON,
+    MediaStates.PLAYING: RemoteStates.ON,
+    MediaStates.PAUSED: RemoteStates.ON,
+    MediaStates.STANDBY: RemoteStates.ON
 }
 
 

@@ -15,7 +15,6 @@ from sonyapilib.device import SonyDevice, AuthenticationResult
 
 import config
 from discover import async_identify_sonybluray_devices
-from client import SonyBlurayDevice
 from config import DeviceInstance
 from ucapi import (
     AbortDriverSetup,
@@ -29,7 +28,7 @@ from ucapi import (
     UserDataResponse,
 )
 
-from const import States, IRCC_PORT, DMR_PORT, APP_PORT
+from const import IRCC_PORT, DMR_PORT, APP_PORT
 
 _LOG = logging.getLogger(__name__)
 
