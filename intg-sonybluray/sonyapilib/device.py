@@ -805,7 +805,7 @@ class SonyDevice:
             url = self.actionlist_url
             try:
                 self._send_http(url, HttpMethod.GET,
-                                log_errors=False, raise_errors=True)
+                                log_errors=False, raise_errors=True, timeout=timeout)
             except requests.exceptions.RequestException as ex:
                 _LOGGER.debug(ex)
                 return False
