@@ -277,8 +277,8 @@ class SonyBlurayDevice(object):
                 self._sony_device.power(True)
             else:
                 self._sony_device.power(False)
-            await self._event_loop.create_task(self.update(10))
-            await self._event_loop.create_task(self.update(20))
+            self._event_loop.create_task(self.update(10))
+            self._event_loop.create_task(self.update(20))
             return
 
         if not self.is_on:
@@ -291,8 +291,8 @@ class SonyBlurayDevice(object):
         try:
             self._sony_device.power(True)
             if not self._device_config.polling:
-                await self._event_loop.create_task(self.update(10))
-                await self._event_loop.create_task(self.update(20))
+                self._event_loop.create_task(self.update(10))
+                self._event_loop.create_task(self.update(20))
             return ucapi.StatusCodes.OK
         except Exception as ex:
             _LOGGER.debug("Error turn on %s", ex)
@@ -304,7 +304,7 @@ class SonyBlurayDevice(object):
             power_status = await self._sony_device.get_power_status(timeout=2)
             if power_status:
                 self._sony_device.power(False)
-            await self._event_loop.create_task(self.update(10))
+            self._event_loop.create_task(self.update(10))
             return
 
         if self.is_on:
@@ -321,31 +321,31 @@ class SonyBlurayDevice(object):
     @cmd_wrapper
     async def play_pause(self):
         if not self._device_config.polling:
-            await self._event_loop.create_task(self.update())
+            self._event_loop.create_task(self.update())
         return self._sony_device.pause()
 
     @cmd_wrapper
     async def play(self):
         if not self._device_config.polling:
-            await self._event_loop.create_task(self.update())
+            self._event_loop.create_task(self.update())
         self._sony_device.play()
 
     @cmd_wrapper
     async def pause(self):
         if not self._device_config.polling:
-            await self._event_loop.create_task(self.update())
+            self._event_loop.create_task(self.update())
         self._sony_device.pause()
 
     @cmd_wrapper
     async def stop(self):
         if not self._device_config.polling:
-            await self._event_loop.create_task(self.update())
+            self._event_loop.create_task(self.update())
         self._sony_device.stop()
 
     @cmd_wrapper
     async def eject(self):
         if not self._device_config.polling:
-            await self._event_loop.create_task(self.update())
+            self._event_loop.create_task(self.update())
         self._sony_device.eject()
 
     @cmd_wrapper
