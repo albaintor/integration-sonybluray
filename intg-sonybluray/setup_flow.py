@@ -396,8 +396,8 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
                                   app_port=_app_port,
                                   psk=_password_key)
 
-        _sony_device.init_device()
-        register_result = _sony_device.register()
+        await _sony_device.init_device()
+        register_result = await _sony_device.register()
         if register_result == AuthenticationResult.PIN_NEEDED:
             _setup_step = SetupSteps.PAIRING_MODE
             return RequestUserInput(
@@ -468,7 +468,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
 
     _LOG.debug(f"Registering device with pin code: {_sony_device.host} {pin_code}...")
     try:
-        if not _sony_device.send_authentication(pin_code):
+        if not await _sony_device.send_authentication(pin_code):
             _LOG.error("Wrong pin code, cannot connect the device %s", _sony_device.host)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
         identifier = _sony_device.mac

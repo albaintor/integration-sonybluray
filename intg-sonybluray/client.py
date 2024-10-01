@@ -132,7 +132,8 @@ class SonyBlurayDevice(object):
             # response = self._sony_device._send_http(self._sony_device.dmr_url, HttpMethod.GET)
             # if response:
             #     self._connected = True
-            self._sony_device.init_device()
+            _LOGGER.debug("Init device")
+            await self._sony_device.init_device()
 
         except Exception as ex:
             _LOGGER.debug("Sony device connection error, waiting next call %s", ex)
@@ -194,12 +195,12 @@ class SonyBlurayDevice(object):
             if self.state in [States.OFF, States.UNKNOWN]:
                 await self.connect()
 
-            power_status = self._sony_device.get_power_status()
+            power_status = await self._sony_device.get_power_status()
             if not power_status:
                 self._state = States.OFF
             else:
                 self._state = States.ON
-                device_state = self._sony_device.get_status()
+                device_state = await self._sony_device.get_status()
                 if device_state == DeviceState.OFF:
                     self._state = States.OFF
                 elif device_state == DeviceState.STOPPED:
@@ -267,29 +268,32 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def send_key(self, key):
-        self._sony_device._send_command(key)
+        await self._sony_device._send_command(key)
 
     @cmd_wrapper
     async def toggle(self):
         if not self._device_config.polling:
-            power_status = await self._sony_device.get_power_status(timeout=2)
-            if not power_status:
-                self._sony_device.power(True)
+            if self._sony_device.initialized:
+                power_status = await self._sony_device.get_power_status(timeout=2)
+                if not power_status:
+                    await self._sony_device.power(True)
+                else:
+                    await self._sony_device.power(False)
             else:
-                self._sony_device.power(False)
+                await self._sony_device.power(True)
             self._event_loop.create_task(self.update(10))
             self._event_loop.create_task(self.update(20))
             return
 
         if not self.is_on:
-            self._sony_device.power(True)
+            await self._sony_device.power(True)
         else:
-            self._sony_device.power(False)
+            await self._sony_device.power(False)
 
     async def turn_on(self) -> ucapi.StatusCodes:
         _LOGGER.debug("Turn on (state %s)", self.state)
         try:
-            self._sony_device.power(True)
+            await self._sony_device.power(True)
             if not self._device_config.polling:
                 self._event_loop.create_task(self.update(10))
                 self._event_loop.create_task(self.update(20))
@@ -303,55 +307,55 @@ class SonyBlurayDevice(object):
         if not self._device_config.polling:
             power_status = await self._sony_device.get_power_status(timeout=2)
             if power_status:
-                self._sony_device.power(False)
+                await self._sony_device.power(False)
             self._event_loop.create_task(self.update(10))
             return
 
         if self.is_on:
-            self._sony_device.power(False)
+            await self._sony_device.power(False)
 
     @cmd_wrapper
     async def channel_up(self):
-        return self._sony_device.next()
+        return await self._sony_device.next()
 
     @cmd_wrapper
     async def channel_down(self):
-        return self._sony_device.prev()
+        return await self._sony_device.prev()
 
     @cmd_wrapper
     async def play_pause(self):
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        return self._sony_device.pause()
+        return await self._sony_device.pause()
 
     @cmd_wrapper
     async def play(self):
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        self._sony_device.play()
+        await self._sony_device.play()
 
     @cmd_wrapper
     async def pause(self):
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        self._sony_device.pause()
+        await self._sony_device.pause()
 
     @cmd_wrapper
     async def stop(self):
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        self._sony_device.stop()
+        await self._sony_device.stop()
 
     @cmd_wrapper
     async def eject(self):
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        self._sony_device.eject()
+        await self._sony_device.eject()
 
     @cmd_wrapper
     async def fast_forward(self):
-        self._sony_device.forward()
+        await self._sony_device.forward()
 
     @cmd_wrapper
     async def rewind(self):
-        self._sony_device.rewind()
+        await self._sony_device.rewind()
