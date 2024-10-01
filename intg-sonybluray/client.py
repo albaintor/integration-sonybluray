@@ -166,7 +166,7 @@ class SonyBlurayDevice(object):
         self._reconnect_retry = 0
         while True:
             if not self._device_config.always_on:
-                if self.state == States.OFF:
+                if self.state in [States.OFF, States.UNKNOWN]:
                     self._reconnect_retry += 1
                     if self._reconnect_retry > CONNECTION_RETRIES:
                         _LOGGER.debug("Stopping update task as the device %s is off", self.id)
@@ -190,7 +190,7 @@ class SonyBlurayDevice(object):
         current_state = self.state
         try:
             # _LOGGER.debug("Refresh Sony data")
-            if self.state == States.OFF:
+            if self.state in [States.OFF, States.UNKNOWN]:
                 await self.connect()
 
             power_status = self._sony_device.get_power_status()
@@ -282,8 +282,10 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def turn_on(self):
-        if not self._device_config.polling:
-            await self.update()
+        _LOGGER.debug("Turn on (state %s)", self.state)
+        self._sony_device.power(True)
+        # if not self._device_config.polling:
+        #     await self.update()
         if not self.is_on:
             self._sony_device.power(True)
         if not self._device_config.polling:

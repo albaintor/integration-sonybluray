@@ -364,6 +364,7 @@ async def main():
     logging.getLogger("media_player").setLevel(level)
     logging.getLogger("receiver").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
+    logging.getLogger("sonyapilib.device").setLevel(level)
     # logging.getLogger("sonyapilib.device").setLevel(level)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)

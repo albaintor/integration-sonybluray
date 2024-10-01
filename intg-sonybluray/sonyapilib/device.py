@@ -2,6 +2,7 @@
 import base64
 import json
 import logging
+import socket
 import struct
 import xml.etree.ElementTree
 from enum import Enum
@@ -13,7 +14,6 @@ from urllib.parse import (
 
 import jsonpickle
 import requests
-from wakeonlan import send_magic_packet
 
 from sonyapilib import ssdp
 from sonyapilib.xml_helper import find_in_xml
@@ -747,14 +747,28 @@ class SonyDevice:
 
         return AuthenticationResult.SUCCESS == result
 
-    def wakeonlan(self, broadcast='255.255.255.255'):
-        """Start the device either via wakeonlan."""
-        if self.mac:
-            _LOGGER.debug("Sony wake on lan %s", self.mac)
-            # On windows it won't work, need to set the exact IP interface
-            send_magic_packet(self.mac, interface='0.0.0.0')
-        else:
-            _LOGGER.warning("No mac address saved, wake on lan is not possible")
+    def _create_magic_packet(self, mac_address: str) -> bytes:
+        """Create a magic packet to wake on LAN."""
+        addr_byte = mac_address.replace("-", ":").split(":")
+        hw_addr = struct.pack(
+            "BBBBBB",
+            int(addr_byte[0], 16),
+            int(addr_byte[1], 16),
+            int(addr_byte[2], 16),
+            int(addr_byte[3], 16),
+            int(addr_byte[4], 16),
+            int(addr_byte[5], 16),
+        )
+        return b"\xff" * 6 + hw_addr * 16
+
+    def wakeonlan(self, broadcast='255.255.255.255') -> None:
+        """Send WOL command. to known mac addresses."""
+        messages = [self._create_magic_packet(self.mac)]
+        broadcast = "<broadcast>" if broadcast is None else broadcast
+        socket_instance = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        socket_instance.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for msg in messages:
+            socket_instance.sendto(msg, (broadcast, 9))
 
     def get_status(self) -> DeviceState:
         response = self._send_http(
@@ -762,7 +776,6 @@ class SonyDevice:
                 "getStatus").url, method=HttpMethod.GET)
         if not response:
             return DeviceState.OFF
-
         for element in find_in_xml(
                 response.text, [("status", True)]
         ):
@@ -829,6 +842,7 @@ class SonyDevice:
     def power(self, power_on, broadcast='255.255.255.255'):
         """Powers the device on or shuts it off."""
         if power_on:
+            _LOGGER.debug("Wake on lan")
             self.wakeonlan(broadcast)
             # Try using the power on command incase the WOL doesn't work
             if not self.get_power_status():
