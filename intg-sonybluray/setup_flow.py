@@ -396,7 +396,10 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
                                   app_port=_app_port,
                                   psk=_password_key)
 
-        await _sony_device.init_device()
+        try:
+            await _sony_device.init_device()
+        except Exception:
+            pass
         register_result = await _sony_device.register()
         if register_result == AuthenticationResult.PIN_NEEDED:
             _setup_step = SetupSteps.PAIRING_MODE

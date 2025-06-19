@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from sonyapilib.device import SonyDevice
+from sonyapilib.device import SonyDevice, AuthenticationResult
 
 import sonyapilib
 from sonyapilib.ssdp import SSDPDiscovery
@@ -32,8 +32,16 @@ async def main():
                                    psk=_device_config.get("password_key"), nickname=_device_config.get("client_name"))
     _sony_device.pin = _device_config.get("pin_code")
     _sony_device.mac = _device_config.get("mac_address")
-    # _sony_device.init_device()
-    status = _sony_device.get_power_status(timeout=2)
+    try:
+        await _sony_device.init_device()
+    except Exception as ex:
+        print("Exception")
+    register_result = await _sony_device.register()
+    if register_result == AuthenticationResult.PIN_NEEDED:
+        print("PIN NEEDED")
+    else:
+        print("NO PIN NEEDED")
+    status = await _sony_device.get_power_status(timeout=2)
     if status:
         print("ON")
     else:
