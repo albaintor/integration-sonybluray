@@ -4,7 +4,7 @@ import asyncio
 from functools import wraps
 from typing import Callable, Concatenate, Awaitable, Any, Coroutine, TypeVar, ParamSpec
 
-from asyncio import Lock, CancelledError
+from asyncio import Lock, CancelledError, AbstractEventLoop
 import logging
 from enum import IntEnum
 
@@ -101,7 +101,7 @@ class SonyBlurayDevice(object):
         self._timeout = timeout
         self.refresh_frequency = timedelta(seconds=refresh_frequency)
         self._state = States.UNKNOWN
-        self._event_loop = asyncio.get_event_loop() or asyncio.get_running_loop()
+        self._event_loop: AbstractEventLoop = asyncio.get_event_loop() or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._event_loop)
         self._sony_device: SonyDevice | None = None
         self._media_position = 0
@@ -125,7 +125,7 @@ class SonyBlurayDevice(object):
         self._sony_device.pin = self._device_config.pin_code
         self._sony_device.mac = self._device_config.mac_address
         if self._device_config.pin_code is None:
-            register_result = self._sony_device.register()
+            register_result = await self._sony_device.register()
             if register_result == AuthenticationResult.PIN_NEEDED:
                 raise ConnectionError("PIN code needed")
         try:
