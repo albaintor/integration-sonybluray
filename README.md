@@ -41,6 +41,11 @@ Code has been taken from the following repositories :
 
 For more information on available commands see [this page](https://next.openhab.org/addons/bindings/panasonicbdp/)
 
+## Player settings
+
+First you have to enable the home network access from Settings : `Auto Home Network Access Permission` to `On`
+Also, enable `Remote Start` to `On`
+
 ## Usage
 
 ### Setup
