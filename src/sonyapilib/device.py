@@ -195,7 +195,10 @@ class SonyDevice:
 
         if self.pin:
             self._recreate_authentication()
-            await self._update_applist()
+            try:
+                await self._update_applist()
+            except Exception as ex:
+                _LOGGER.info("Cannot retrieve apps list, the device probably don't support it %s", ex)
 
     @property
     def initialized(self) -> bool:
@@ -634,7 +637,7 @@ class SonyDevice:
         if name not in self.actions and not self.actions:
             # self.init_device()
             # if name not in self.actions and not self.actions:
-            raise ValueError('Failed to read action list from device.')
+            raise ValueError(f"Failed to read action list from device ({name})")
 
         return self.actions[name]
 
@@ -715,8 +718,7 @@ class SonyDevice:
         Make sure this name does not exist yet.
         For this the device must be put in registration mode.
         """
-        registration_result = AuthenticationResult.ERROR
-        registration_action = registration_action = self._get_action(
+        registration_action = self._get_action(
             "register")
 
         if registration_action.mode < 3:

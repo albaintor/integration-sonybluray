@@ -616,6 +616,9 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     )  # triggers Sony BR instance creation
     config.devices.store()
 
+    _LOG.debug("Supported actions : %s", _sony_device.actions.keys())
+    _LOG.debug("Supported commands : %s", _sony_device.commands.keys())
+
     # AVR device connection will be triggered with subscribe_entities request
 
     await asyncio.sleep(1)
