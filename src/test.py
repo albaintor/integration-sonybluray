@@ -10,12 +10,24 @@ from discover import async_identify_sonybluray_devices
 _LOGGER = logging.getLogger(__name__)
 
 
+async def discover():
+    devices = await async_identify_sonybluray_devices()
+    for device in devices:
+        _LOGGER.info(device)
+    # ssdp = SSDPDiscovery()
+    # devices = ssdp.discover(timeout=5)
+    # devices = ssdp.discover()
+    # print(devices)
+
+
 async def main():
     logging.basicConfig(level=logging.INFO)
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     # ch.setFormatter(formatter)
     _LOGGER.addHandler(ch)
+    await discover()
+    exit(0)
     # devices = await async_identify_sonybluray_devices()
     # for device in devices:
     #     _LOGGER.info(device.get("host"))

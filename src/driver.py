@@ -9,6 +9,7 @@ This module implements a Remote Two integration driver for Orange STB.
 import asyncio
 import logging
 import os
+import sys
 from typing import Any
 
 import ucapi
@@ -23,7 +24,10 @@ from client import SonyBlurayDevice
 from config import device_from_entity_id
 
 _LOG = logging.getLogger("driver")  # avoid having __main__ in log messages
-_LOOP = asyncio.get_event_loop()
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
 
 # Global variables
 api = ucapi.IntegrationAPI(_LOOP)
@@ -328,6 +332,12 @@ def on_device_added(device: config.DeviceInstance) -> None:
     _configure_new_device(device, connect=False)
 
 
+def on_device_updated(device: config.DeviceInstance) -> None:
+    """Handle an updated device in the configuration."""
+    _LOG.debug("Device config updated: %s, reconnect with new configuration", device)
+    _configure_new_device(device, connect=True)
+
+
 def on_device_removed(device: config.DeviceInstance | None) -> None:
     """Handle a removed device in the configuration."""
     if device is None:
@@ -367,7 +377,9 @@ async def main():
     logging.getLogger("sonyapilib.device").setLevel(level)
     # logging.getLogger("sonyapilib.device").setLevel(level)
 
-    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed)
+    config.devices = config.Devices(
+        api.config_dir_path, on_device_added, on_device_removed, on_device_updated
+    )
     for device in config.devices.all():
         _LOG.debug("Sony device %s %s", device.id, device.address)
         _configure_new_device(device, connect=False)

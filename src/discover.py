@@ -26,8 +26,9 @@ SSDP_TARGET = (SSDP_ADDR, SSDP_PORT)
 SSDP_ST_1 = "ssdp:all"
 SSDP_ST_2 = "upnp:rootdevice"
 SSDP_ST_3 = "urn:schemas-upnp-org:device:Basic:1"
+SSDP_ST_4 = "urn:schemas-upnp-org:device:MediaRenderer:1"
 
-SSDP_ST_LIST = (SSDP_ST_1, SSDP_ST_2, SSDP_ST_3)
+SSDP_ST_LIST = (SSDP_ST_1, SSDP_ST_2, SSDP_ST_3, SSDP_ST_4)
 
 SSDP_LOCATION_PATTERN = re.compile(r"(?<=LOCATION:\s).+?(?=\r)")
 
@@ -41,8 +42,14 @@ SCPD_SERIALNUMBER = f"{SCPD_XMLNS}serialNumber"
 SCPD_FRIENDLYNAME = f"{SCPD_XMLNS}friendlyName"
 SCPD_PRESENTATIONURL = f"{SCPD_XMLNS}presentationURL"
 
+AV_XMLNS = "{urn:schemas-sony-com:av}"
+AV_DMR_TAG = f"{AV_XMLNS}X_StandardDMR"
+AV_IRCC_TAG = f"{AV_XMLNS}X_IRCC_DeviceInfo"
+AV_DMR_TAG2 = "X_StandardDMR"
+
 SUPPORTED_DEVICETYPES = [
     "urn:schemas-upnp-org:device:Basic:1",
+    "urn:schemas-upnp-org:device:MediaRenderer:1"
 ]
 
 SUPPORTED_MANUFACTURERS = ["Sony Corporation"]
@@ -100,7 +107,19 @@ async def async_identify_sonybluray_devices() -> List[Dict]:
             if device is not None:
                 devices.append(device)
 
-    return devices
+    consolidated_devices: List[Dict] = []
+    for device in devices:
+        existing = [dev for dev in consolidated_devices if dev.get("host", "") == device.get("host", "")]
+        if len(existing) == 0:
+            consolidated_devices.append(device)
+        else:
+            print("Updated device", device)
+            if device.get("irccPort", None):
+                existing[0]["irccPort"] = device["irccPort"]
+            if device.get("dmrPort", None):
+                existing[0]["dmrPort"] = device["dmrPort"]
+
+    return consolidated_devices
 
 
 async def async_send_ssdp_broadcast() -> Set[str]:
@@ -169,7 +188,7 @@ def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
         # Look for manufacturer "SoftAtHome" in response.
         # Using "try" in case tags are not available in XML
         device = {}
-        device_xml = None
+        device_xml: ET.Element|None = None
 
         device["manufacturer"] = root.find(SCPD_DEVICE).find(SCPD_MANUFACTURER).text
 
@@ -189,17 +208,33 @@ def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
         if device_xml is None:
             return None
 
+        presentation_url: str | None = None
         if device_xml.find(SCPD_PRESENTATIONURL) is not None:
-            device["host"] = urlparse(device_xml.find(SCPD_PRESENTATIONURL).text).hostname
-            device["presentationURL"] = device_xml.find(SCPD_PRESENTATIONURL).text
+            presentation_url = device_xml.find(SCPD_PRESENTATIONURL).text
+
+        if presentation_url is not None and len(presentation_url) > 0:
+            device["host"] = urlparse(presentation_url).hostname
+            device["presentationURL"] = presentation_url
+            device["port"] = urlparse(url).port
         else:
             device["host"] = urlparse(url).hostname
+            device["port"] = urlparse(url).port
 
         if device["host"] is None:
             device["host"] = urlparse(url).hostname
+            device["port"] = urlparse(url).port
 
         device["modelName"] = device_xml.find(SCPD_MODELNAME).text
         device["friendlyName"] = device_xml.find(SCPD_FRIENDLYNAME).text
+
+        if device_xml.find(AV_IRCC_TAG):
+            device["irccPort"] = device.get("port", 0)
+        # Not working in certain cases which needs a second way
+        if device_xml.find(AV_DMR_TAG):
+            device["dmrPort"] = device.get("port", 0)
+        elif device_xml.findall(f"av:{AV_DMR_TAG2}", namespaces={"av": "urn:schemas-sony-com:av"}):
+            device["dmrPort"] = device.get("port", 0)
+
         return device
     except (
         AttributeError,
