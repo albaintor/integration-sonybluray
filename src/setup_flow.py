@@ -11,20 +11,11 @@ import os
 import socket
 from enum import IntEnum
 
-from ucapi import (
-    AbortDriverSetup,
-    DriverSetupRequest,
-    IntegrationSetupError,
-    RequestUserInput,
-    SetupAction,
-    SetupComplete,
-    SetupDriver,
-    SetupError,
-    UserDataResponse,
-)
+from ucapi import (AbortDriverSetup, DriverSetupRequest, IntegrationSetupError,
+                   RequestUserInput, SetupAction, SetupComplete, SetupDriver,
+                   SetupError, UserDataResponse)
 
 import config
-from config import DeviceInstance
 from const import APP_PORT, DMR_PORT, IRCC_PORT
 from discover import async_identify_sonybluray_devices
 from sonyapilib.device import AuthenticationResult, SonyDevice
@@ -47,7 +38,7 @@ _setup_step = SetupSteps.INIT
 _discovered_devices: list[dict] = []
 _cfg_add_device: bool = False
 _sony_device: SonyDevice | None = None
-_reconfigured_device: DeviceInstance | None = None
+_reconfigured_device: config.DeviceInstance | None = None
 _device_name = "Sony Bluray"
 _always_on = False
 _polling = False
@@ -572,7 +563,7 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(
+        config.DeviceInstance(
             id=unique_id,
             name=_device_name,
             address=_host,
@@ -638,7 +629,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     _LOG.error("Device registered successfully %s (%s)", _sony_device.host, _sony_device.mac)
 
     config.devices.add(
-        DeviceInstance(
+        config.DeviceInstance(
             id=unique_id,
             name=_device_name,
             address=_sony_device.host,

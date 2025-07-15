@@ -5,7 +5,8 @@ import logging
 from asyncio import AbstractEventLoop, CancelledError, Lock
 from enum import IntEnum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
+from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
+                    ParamSpec, TypeVar)
 
 import ucapi.media_player
 from pyee.asyncio import AsyncIOEventEmitter

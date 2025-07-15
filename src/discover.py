@@ -11,7 +11,6 @@ from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import httpx
-
 # import netifaces
 from defusedxml import DefusedXmlException
 from defusedxml.ElementTree import ParseError, fromstring
