@@ -10,10 +10,11 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Iterator, Callable
+from typing import Callable, Iterator
 
 from ucapi import EntityTypes
-from const import IRCC_PORT, APP_PORT, DMR_PORT
+
+from const import APP_PORT, DMR_PORT, IRCC_PORT
 
 _LOG = logging.getLogger(__name__)
 
@@ -55,9 +56,21 @@ class DeviceInstance:
     pin_code: int
     polling: bool
 
-    def __init__(self, id, name, address, pin_code, client_name, always_on=False, app_port=APP_PORT, dmr_port=DMR_PORT,
-                 ircc_port=IRCC_PORT, password_key=None,
-                 mac_address=None, polling=False):
+    def __init__(
+        self,
+        id,
+        name,
+        address,
+        pin_code,
+        client_name,
+        always_on=False,
+        app_port=APP_PORT,
+        dmr_port=DMR_PORT,
+        ircc_port=IRCC_PORT,
+        password_key=None,
+        mac_address=None,
+        polling=False,
+    ):
         self.id = id
         self.name = name
         self.client_name = client_name
@@ -84,10 +97,13 @@ class _EnhancedJSONEncoder(json.JSONEncoder):
 class Devices:
     """Integration driver configuration class. Manages all configured Sony devices."""
 
-    def __init__(self, data_path: str,
-                 add_handler: Callable[[DeviceInstance], None],
-                 remove_handler: Callable[[DeviceInstance|None], None],
-                 update_handler: Callable[[DeviceInstance], None]):
+    def __init__(
+        self,
+        data_path: str,
+        add_handler: Callable[[DeviceInstance], None],
+        remove_handler: Callable[[DeviceInstance | None], None],
+        update_handler: Callable[[DeviceInstance], None],
+    ):
         """
         Create a configuration instance for the given configuration path.
 

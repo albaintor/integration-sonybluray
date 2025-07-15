@@ -1,21 +1,18 @@
 """Sony Media player lib"""
+
 import asyncio
 import base64
 import json
 import logging
 import socket
 import struct
-import aiohttp
 import xml.etree.ElementTree
 from enum import Enum
-from urllib.parse import (
-    urljoin,
-    urlparse,
-    quote,
-)
+from urllib.parse import quote, urljoin, urlparse
 
+import aiohttp
 import jsonpickle
-from aiohttp import ClientTimeout, ClientResponseError
+from aiohttp import ClientResponseError, ClientTimeout
 from aiohttp.web_exceptions import HTTPError
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,49 +63,49 @@ class IrccCategory(Enum):
 
 IR_KEY_CODES = {
     IrccCategory.BD1: (
-        ('Num1', 0),
-        ('Num2', 1),
-        ('Num3', 2),
-        ('Num4', 3),
-        ('Num5', 4),
-        ('Num6', 5),
-        ('Num7', 6),
-        ('Num8', 7),
-        ('Num9', 8),
-        ('Num0', 9),
-        ('Power', 21),
-        ('Eject', 22),
-        ('Stop', 24),
-        ('Pause', 25),
-        ('Play', 26),
-        ('Rewind', 27),
-        ('Forward', 28),
-        ('PopUpMenu', 41),
-        ('TopMenu', 44),
-        ('Up', 57),
-        ('Down', 58),
-        ('Left', 59),
-        ('Right', 60),
-        ('Confirm', 61),
-        ('Options', 63),
-        ('Display', 65),
-        ('Home', 66),
-        ('Return', 67),
-        ('Karaoke', 74),
-        ('Netflix', 75),
-        ('Mode3D', 77),
-        ('Next', 86),
-        ('Prev', 87),
-        ('Favorites', 94),
-        ('SubTitle', 99),
-        ('Audio', 100),
-        ('Angle', 101),
-        ('Blue', 102),
-        ('Red', 103),
-        ('Green', 104),
-        ('Yellow', 105),
-        ('Advance', 117),
-        ('Replay', 118),
+        ("Num1", 0),
+        ("Num2", 1),
+        ("Num3", 2),
+        ("Num4", 3),
+        ("Num5", 4),
+        ("Num6", 5),
+        ("Num7", 6),
+        ("Num8", 7),
+        ("Num9", 8),
+        ("Num0", 9),
+        ("Power", 21),
+        ("Eject", 22),
+        ("Stop", 24),
+        ("Pause", 25),
+        ("Play", 26),
+        ("Rewind", 27),
+        ("Forward", 28),
+        ("PopUpMenu", 41),
+        ("TopMenu", 44),
+        ("Up", 57),
+        ("Down", 58),
+        ("Left", 59),
+        ("Right", 60),
+        ("Confirm", 61),
+        ("Options", 63),
+        ("Display", 65),
+        ("Home", 66),
+        ("Return", 67),
+        ("Karaoke", 74),
+        ("Netflix", 75),
+        ("Mode3D", 77),
+        ("Next", 86),
+        ("Prev", 87),
+        ("Favorites", 94),
+        ("SubTitle", 99),
+        ("Audio", 100),
+        ("Angle", 101),
+        ("Blue", 102),
+        ("Red", 103),
+        ("Green", 104),
+        ("Yellow", 105),
+        ("Advance", 117),
+        ("Replay", 118),
     )
 }
 
@@ -143,8 +140,7 @@ class SonyDevice:
     # pylint: disable=fixme
     """Contains all data for the device."""
 
-    def __init__(self, host, nickname, psk=None,
-                 app_port=50202, dmr_port=52323, ircc_port=50001):
+    def __init__(self, host, nickname, psk=None, app_port=50202, dmr_port=52323, ircc_port=50001):
         # pylint: disable=too-many-arguments
         """Init the device with the entry point."""
         self.host = host
@@ -279,60 +275,52 @@ class SonyDevice:
 
             if action.name == "register":
                 # the authentication is based on the device id and the mac
-                action.url = \
-                    f"{action.url}{separator}name={quote(self.nickname)}&registrationType=initial&deviceId={quote(self.client_id)}"
+                action.url = f"{action.url}{separator}name={quote(self.nickname)}&registrationType=initial&deviceId={quote(self.client_id)}"
                 self.api_version = action.mode
                 if action.mode == 3:
                     action.url = action.url + "&wolSupport=true"
 
     async def _parse_ircc(self):
-        content = await self._send_http(
-            self.ircc_url, method=HttpMethod.GET, raise_errors=True)
+        content = await self._send_http(self.ircc_url, method=HttpMethod.GET, raise_errors=True)
 
         upnp_device = "{}device".format(URN_UPNP_DEVICE)
         # the action list contains everything the device supports
         self.actionlist_url = find_in_xml(
             content,
-            [upnp_device,
-             "{}X_UNR_DeviceInfo".format(URN_SONY_AV),
-             "{}X_CERS_ActionList_URL".format(URN_SONY_AV)]
+            [upnp_device, "{}X_UNR_DeviceInfo".format(URN_SONY_AV), "{}X_CERS_ActionList_URL".format(URN_SONY_AV)],
         ).text
         services = find_in_xml(
             content,
-            [upnp_device,
-             "{}serviceList".format(URN_UPNP_DEVICE),
-             ("{}service".format(URN_UPNP_DEVICE), True)],
+            [upnp_device, "{}serviceList".format(URN_UPNP_DEVICE), ("{}service".format(URN_UPNP_DEVICE), True)],
         )
 
         lirc_url = urlparse(self.ircc_url)
         for service in services:
-            service_id = service.find(
-                "{0}serviceId".format(URN_UPNP_DEVICE))
+            service_id = service.find("{0}serviceId".format(URN_UPNP_DEVICE))
 
-            if service_id is None or \
-                    URN_SONY_IRCC not in service_id.text:
+            if service_id is None or URN_SONY_IRCC not in service_id.text:
                 continue
 
-            service_location = service.find(
-                "{0}controlURL".format(URN_UPNP_DEVICE)).text
+            service_location = service.find("{0}controlURL".format(URN_UPNP_DEVICE)).text
 
-            if service_location.startswith('http://'):
-                service_url = ''
+            if service_location.startswith("http://"):
+                service_url = ""
             else:
                 service_url = lirc_url.scheme + "://" + lirc_url.netloc
             self.control_url = service_url + service_location
 
         categories = find_in_xml(
             content,
-            [upnp_device,
-             "{}X_IRCC_DeviceInfo".format(URN_SONY_AV),
-             "{}X_IRCC_CategoryList".format(URN_SONY_AV),
-             ("{}X_IRCC_Category".format(URN_SONY_AV), True)]
+            [
+                upnp_device,
+                "{}X_IRCC_DeviceInfo".format(URN_SONY_AV),
+                "{}X_IRCC_CategoryList".format(URN_SONY_AV),
+                ("{}X_IRCC_Category".format(URN_SONY_AV), True),
+            ],
         )
 
         for category in categories:
-            category_info = category.find(
-                "{}X_CategoryInfo".format(URN_SONY_AV))
+            category_info = category.find("{}X_CategoryInfo".format(URN_SONY_AV))
             if category_info is None:
                 continue
 
@@ -347,46 +335,37 @@ class SonyDevice:
             return
 
         json_resp = json.loads(response)
-        if json_resp and not json_resp.get('error'):
-            for option in json_resp.get('result')[0]:
-                if option['option'] == 'WOL':
-                    self.mac = option['value']
+        if json_resp and not json_resp.get("error"):
+            for option in json_resp.get("result")[0]:
+                if option["option"] == "WOL":
+                    self.mac = option["value"]
 
     async def _parse_system_information(self):
         try:
-            content = await self._send_http(
-                self._get_action(
-                    "getSystemInformation").url, method=HttpMethod.GET)
+            content = await self._send_http(self._get_action("getSystemInformation").url, method=HttpMethod.GET)
             if not content:
                 return
         except (Exception, HTTPError):
             return
-        for element in find_in_xml(
-                content, [("supportFunction", "all"), ("function", True)]
-        ):
+        for element in find_in_xml(content, [("supportFunction", "all"), ("function", True)]):
             for function in element:
                 if function.attrib["name"] == "WOL":
-                    self.mac = function.find(
-                        "functionItem").attrib["value"]
+                    self.mac = function.find("functionItem").attrib["value"]
 
     def _parse_dmr(self, data):
         lirc_url = urlparse(self.ircc_url)
         xml_data = xml.etree.ElementTree.fromstring(data)
 
-        for device in find_in_xml(xml_data, [
-            ("{0}device".format(URN_UPNP_DEVICE), True),
-            "{0}serviceList".format(URN_UPNP_DEVICE)
-        ]):
+        for device in find_in_xml(
+            xml_data, [("{0}device".format(URN_UPNP_DEVICE), True), "{0}serviceList".format(URN_UPNP_DEVICE)]
+        ):
             for service in device:
-                service_id = service.find(
-                    "{0}serviceId".format(URN_UPNP_DEVICE))
+                service_id = service.find("{0}serviceId".format(URN_UPNP_DEVICE))
                 if "urn:upnp-org:serviceId:AVTransport" not in service_id.text:
                     continue
-                transport_location = service.find(
-                    "{0}controlURL".format(URN_UPNP_DEVICE)).text
+                transport_location = service.find("{0}controlURL".format(URN_UPNP_DEVICE)).text
                 self.av_transport_url = "{0}://{1}:{2}{3}".format(
-                    lirc_url.scheme, lirc_url.netloc.split(":")[0],
-                    self.dmr_port, transport_location
+                    lirc_url.scheme, lirc_url.netloc.split(":")[0], self.dmr_port, transport_location
                 )
 
         # this is only true for v4 devices.
@@ -394,9 +373,7 @@ class SonyDevice:
             return
 
         self.api_version = 4
-        device_info_name = "{0}X_ScalarWebAPI_DeviceInfo".format(
-            URN_SCALAR_WEB_API_DEVICE_INFO
-        )
+        device_info_name = "{0}X_ScalarWebAPI_DeviceInfo".format(URN_SCALAR_WEB_API_DEVICE_INFO)
 
         search_params = [
             ("{0}device".format(URN_UPNP_DEVICE), True),
@@ -435,39 +412,34 @@ class SonyDevice:
         action = self.actions[action_name]
         json_data = self._create_api_json(action.value)
 
-        response = await self._send_http(
-            action.url, HttpMethod.POST, json=json_data, headers={}
-        )
+        response = await self._send_http(action.url, HttpMethod.POST, json=json_data, headers={})
 
         if not response:
             _LOGGER.debug("no response received, device might be off")
             return
 
         json_resp = json.loads(response)
-        if json_resp and not json_resp.get('error'):
-            for command in json_resp.get('result')[1]:
+        if json_resp and not json_resp.get("error"):
+            for command in json_resp.get("result")[1]:
                 api_object = XmlApiObject(command)
                 if api_object.name == "PowerOff":
                     api_object.name = "Power"
                 self.commands[api_object.name] = api_object
         else:
-            _LOGGER.error("JSON request error: %s",
-                          json.dumps(json_resp, indent=4))
+            _LOGGER.error("JSON request error: %s", json.dumps(json_resp, indent=4))
 
     async def _parse_command_list(self):
         """Parse the list of available command in devices with the legacy api."""
         action_name = "getRemoteCommandList"
         if action_name not in self.actions:
-            _LOGGER.debug(
-                "Action list not set in device, try calling init_device")
+            _LOGGER.debug("Action list not set in device, try calling init_device")
             return
 
         action = self.actions[action_name]
         url = action.url
         response = await self._send_http(url, method=HttpMethod.GET)
         if not response:
-            _LOGGER.debug(
-                "Failed to get response for command list, device might be off")
+            _LOGGER.debug("Failed to get response for command list, device might be off")
             return
 
         for command in find_in_xml(response, [("command", True)]):
@@ -490,11 +462,13 @@ class SonyDevice:
 
             for name, code in code_list:
                 value = base64.b64encode(struct.pack(">IIIB", fmt, category_id, code, 3))
-                data = XmlApiObject({
-                    "name": name,
-                    "type": "ircc",
-                    "value": value.decode("ascii"),
-                })
+                data = XmlApiObject(
+                    {
+                        "name": name,
+                        "type": "ircc",
+                        "value": value.decode("ascii"),
+                    }
+                )
                 self.commands[name] = data
 
     async def _update_applist(self):
@@ -503,18 +477,19 @@ class SonyDevice:
             url = self.app_url + "/appslist"
             response = await self._send_http(url, method=HttpMethod.GET)
         else:
-            url = 'http://{}/DIAL/sony/applist'.format(self.host)
+            url = "http://{}/DIAL/sony/applist".format(self.host)
             response = await self._send_http(
-                url,
-                method=HttpMethod.GET,
-                cookies={"auth", self.cookies.get("auth", None)})
+                url, method=HttpMethod.GET, cookies={"auth", self.cookies.get("auth", None)}
+            )
 
         if response:
             for app in find_in_xml(response, [(".//app", True)]):
-                data = XmlApiObject({
-                    "name": app.find("name").text,
-                    "id": app.find("id").text,
-                })
+                data = XmlApiObject(
+                    {
+                        "name": app.find("name").text,
+                        "id": app.find("id").text,
+                    }
+                )
                 self.apps[data.name] = data
 
     def _recreate_authentication(self):
@@ -524,37 +499,26 @@ class SonyDevice:
             return
 
         self._add_headers()
-        username = ''
-        base64string = base64.encodebytes(
-            ('%s:%s' % (username, self.pin)).encode()).decode().replace('\n', '')
+        username = ""
+        base64string = base64.encodebytes(("%s:%s" % (username, self.pin)).encode()).decode().replace("\n", "")
 
-        self.headers['Authorization'] = "Basic %s" % base64string
+        self.headers["Authorization"] = "Basic %s" % base64string
         if registration_action.mode == 4:
-            self.headers['Connection'] = "keep-alive"
+            self.headers["Connection"] = "keep-alive"
 
         if self.psk:
-            self.headers['X-Auth-PSK'] = self.psk
+            self.headers["X-Auth-PSK"] = self.psk
 
     def _create_api_json(self, method, params=None):
         # pylint: disable=invalid-name
         """Create json data which will be send via post for the V4 api"""
         if not params:
-            params = [{
-                "clientid": self.client_id,
-                "nickname": self.nickname
-            }, [{
-                "clientid": self.client_id,
-                "nickname": self.nickname,
-                "value": "yes",
-                "function": "WOL"
-            }]]
+            params = [
+                {"clientid": self.client_id, "nickname": self.nickname},
+                [{"clientid": self.client_id, "nickname": self.nickname, "value": "yes", "function": "WOL"}],
+            ]
 
-        return {
-            "method": method,
-            "params": params,
-            "id": 1,
-            "version": "1.0"
-        }
+        return {"method": method, "params": params, "id": 1, "version": "1.0"}
 
     async def _send_http(self, url, method, **kwargs) -> str | None:
         # pylint: disable=too-many-arguments
@@ -570,16 +534,15 @@ class SonyDevice:
         }
         params.update(kwargs)
 
-        _LOGGER.debug(
-            "Calling http url %s method %s", url, method)
+        _LOGGER.debug("Calling http url %s method %s", url, method)
         if url is None:
             return None
 
         try:
             cookies = {} if self.cookies is None else {"auth", self.cookies.get("auth", None)}
-            async with aiohttp.ClientSession(timeout=ClientTimeout(sock_read=60, sock_connect=timeout,
-                                                                   connect=timeout, total=60),
-                                             cookies=cookies) as session:
+            async with aiohttp.ClientSession(
+                timeout=ClientTimeout(sock_read=60, sock_connect=timeout, connect=timeout, total=60), cookies=cookies
+            ) as session:
                 response = await getattr(session, method)(url, **params)
                 response.raise_for_status()
                 return await response.text(encoding="utf-8")
@@ -590,10 +553,7 @@ class SonyDevice:
                 raise
 
     async def _post_soap_request(self, url, params, action) -> str | None:
-        headers = {
-            'SOAPACTION': '"{0}"'.format(action),
-            "Content-Type": "text/xml"
-        }
+        headers = {"SOAPACTION": '"{0}"'.format(action), "Content-Type": "text/xml"}
 
         data = """<?xml version='1.0' encoding='utf-8'?>
                     <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/"
@@ -601,9 +561,10 @@ class SonyDevice:
                         <SOAP-ENV:Body>
                             {0}
                         </SOAP-ENV:Body>
-                    </SOAP-ENV:Envelope>""".format(params)
-        response = await self._send_http(
-            url, method=HttpMethod.POST, headers=headers, data=data)
+                    </SOAP-ENV:Envelope>""".format(
+            params
+        )
+        response = await self._send_http(url, method=HttpMethod.POST, headers=headers, data=data)
         if response:
             return response
         return None
@@ -612,25 +573,26 @@ class SonyDevice:
         """Send an IRCC command via HTTP to Sony Bravia."""
         data = """<u:X_SendIRCC xmlns:u="urn:schemas-sony-com:service:IRCC:1">
                     <IRCCCode>{0}</IRCCCode>
-                  </u:X_SendIRCC>""".format(params)
+                  </u:X_SendIRCC>""".format(
+            params
+        )
         action = "urn:schemas-sony-com:service:IRCC:1#X_SendIRCC"
 
-        content = await self._post_soap_request(
-            url=self.control_url, params=data, action=action)
+        content = await self._post_soap_request(url=self.control_url, params=data, action=action)
         return content
 
     async def _send_command(self, name):
         if not self.commands:
-            raise ValueError('Unknown command: %s' % name)
+            raise ValueError("Unknown command: %s" % name)
             # self.init_device()
 
         if self.commands:
             if name in self.commands:
                 await self._send_req_ircc(self.commands[name].value)
             else:
-                raise ValueError('Unknown command: %s' % name)
+                raise ValueError("Unknown command: %s" % name)
         else:
-            raise ValueError('Failed to read command list from device.')
+            raise ValueError("Failed to read command list from device.")
 
     def _get_action(self, name):
         """Get the action object for the action with the given name"""
@@ -643,10 +605,7 @@ class SonyDevice:
 
     async def _register_without_auth(self, registration_action):
         try:
-            await self._send_http(
-                registration_action.url,
-                method=HttpMethod.GET,
-                raise_errors=True)
+            await self._send_http(registration_action.url, method=HttpMethod.GET, raise_errors=True)
             # set the pin to something to make sure init_device is called
             self.pin = 9999
         except (Exception, HTTPError) as ex:
@@ -657,10 +616,9 @@ class SonyDevice:
 
     async def _register_v3(self, registration_action):
         try:
-            await self._send_http(registration_action.url,
-                                  method=HttpMethod.GET, raise_errors=True)
+            await self._send_http(registration_action.url, method=HttpMethod.GET, raise_errors=True)
         except ClientResponseError as ex:
-            _LOGGER.error("Registration v3 error", ex)
+            _LOGGER.error("Registration v3 error %s", ex)
             if ex.status == 401:
                 return AuthenticationResult.PIN_NEEDED
             return AuthenticationResult.ERROR
@@ -671,22 +629,23 @@ class SonyDevice:
         authorization = self._create_api_json("actRegister")
 
         try:
-            headers = {
-                "Content-Type": "application/json"
-            }
+            headers = {"Content-Type": "application/json"}
 
             if self.pin is None:
-                auth_pin = ''
+                auth_pin = ""
             else:
                 auth_pin = str(self.pin)
 
-            async with aiohttp.ClientSession(timeout=ClientTimeout(sock_read=60, sock_connect=TIMEOUT,
-                                                                   connect=TIMEOUT, total=60),
-                                             raise_for_status=True) as session:
-                response = await session.post(registration_action.url,
-                                              data=json.dumps(authorization),
-                                              headers=headers,
-                                              params={'auth': ('', auth_pin)})
+            async with aiohttp.ClientSession(
+                timeout=ClientTimeout(sock_read=60, sock_connect=TIMEOUT, connect=TIMEOUT, total=60),
+                raise_for_status=True,
+            ) as session:
+                response = await session.post(
+                    registration_action.url,
+                    data=json.dumps(authorization),
+                    headers=headers,
+                    params={"auth": ("", auth_pin)},
+                )
 
                 # response = await self._send_http(registration_action.url,
                 #                                  method=HttpMethod.POST,
@@ -696,7 +655,7 @@ class SonyDevice:
                 #                                  raise_errors=True)
                 resp = await response.json()
                 _LOGGER.debug("Registration v4 %s", resp)
-                if not resp or resp.get('error'):
+                if not resp or resp.get("error"):
                     return AuthenticationResult.ERROR
                 self.cookies = response.cookies
                 return AuthenticationResult.SUCCESS
@@ -708,8 +667,8 @@ class SonyDevice:
 
     def _add_headers(self):
         """Add headers which all devices need"""
-        self.headers['X-CERS-DEVICE-ID'] = self.client_id
-        self.headers['X-CERS-DEVICE-INFO'] = self.client_id
+        self.headers["X-CERS-DEVICE-ID"] = self.client_id
+        self.headers["X-CERS-DEVICE-INFO"] = self.client_id
 
     async def register(self):
         """Register at the api.
@@ -718,20 +677,16 @@ class SonyDevice:
         Make sure this name does not exist yet.
         For this the device must be put in registration mode.
         """
-        registration_action = self._get_action(
-            "register")
+        registration_action = self._get_action("register")
 
         if registration_action.mode < 3:
-            registration_result = await self._register_without_auth(
-                registration_action)
+            registration_result = await self._register_without_auth(registration_action)
         elif registration_action.mode == 3:
             registration_result = await self._register_v3(registration_action)
         elif registration_action.mode == 4:
             registration_result = await self._register_v4(registration_action)
         else:
-            raise ValueError(
-                "Registration mode {0} is not supported"
-                .format(registration_action.mode))
+            raise ValueError("Registration mode {0} is not supported".format(registration_action.mode))
 
         if registration_result is AuthenticationResult.SUCCESS:
             await self.init_device()
@@ -769,7 +724,7 @@ class SonyDevice:
         )
         return b"\xff" * 6 + hw_addr * 16
 
-    def wakeonlan(self, broadcast='255.255.255.255') -> None:
+    def wakeonlan(self, broadcast="255.255.255.255") -> None:
         """Send WOL command. to known mac addresses."""
         messages = [self._create_magic_packet(self.mac)]
         broadcast = "<broadcast>" if broadcast is None else broadcast
@@ -779,14 +734,10 @@ class SonyDevice:
             socket_instance.sendto(msg, (broadcast, 9))
 
     async def get_status(self) -> DeviceState:
-        response = await self._send_http(
-            self._get_action(
-                "getStatus").url, method=HttpMethod.GET)
+        response = await self._send_http(self._get_action("getStatus").url, method=HttpMethod.GET)
         if not response:
             return DeviceState.OFF
-        for element in find_in_xml(
-                response, [("status", True)]
-        ):
+        for element in find_in_xml(response, [("status", True)]):
             if element.attrib["name"] == "viewing":
                 return DeviceState.PLAYING
         return DeviceState.STOPPED
@@ -799,8 +750,7 @@ class SonyDevice:
 
         action = "urn:schemas-upnp-org:service:AVTransport:1#GetTransportInfo"
 
-        content = await self._post_soap_request(
-            url=self.av_transport_url, params=data, action=action)
+        content = await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
         if not content:
             return "OFF"
 
@@ -811,24 +761,24 @@ class SonyDevice:
         if self.api_version < 4:
             url = self.actionlist_url
             try:
-                await self._send_http(url, HttpMethod.GET,
-                                      log_errors=False, raise_errors=True, timeout=timeout)
+                await self._send_http(url, HttpMethod.GET, log_errors=False, raise_errors=True, timeout=timeout)
             except Exception as ex:
                 _LOGGER.debug(ex)
                 return False
             return True
         try:
-            resp = await self._send_http(urljoin(self.base_url, "system"),
-                                         HttpMethod.POST,
-                                         json=self._create_api_json(
-                                             "getPowerStatus"),
-                                         timeout=timeout)
+            resp = await self._send_http(
+                urljoin(self.base_url, "system"),
+                HttpMethod.POST,
+                json=self._create_api_json("getPowerStatus"),
+                timeout=timeout,
+            )
             if not resp:
                 return False
             json_data = json.loads(resp)
-            if not json_data.get('error'):
-                power_data = json_data.get('result')[0]
-                return power_data.get('status') != "off"
+            if not json_data.get("error"):
+                power_data = json_data.get("result")[0]
+                return power_data.get("status") != "off"
         except Exception:
             pass
         return False
@@ -843,12 +793,10 @@ class SonyDevice:
             data = "LOCATION: {0}/run".format(url)
             await self._send_http(url, HttpMethod.POST, data=data)
         else:
-            url = 'http://{}/DIAL/apps/{}'.format(
-                self.host, self.apps[app_name].id)
-            await self._send_http(url, HttpMethod.POST,
-                                  cookies={"auth", self.cookies.get("auth")})
+            url = "http://{}/DIAL/apps/{}".format(self.host, self.apps[app_name].id)
+            await self._send_http(url, HttpMethod.POST, cookies={"auth", self.cookies.get("auth")})
 
-    async def power(self, power_on, broadcast='255.255.255.255'):
+    async def power(self, power_on, broadcast="255.255.255.255"):
         """Powers the device on or shuts it off."""
         if power_on:
             _LOGGER.debug("Wake on lan")
@@ -857,9 +805,9 @@ class SonyDevice:
             if self.initialized and not await self.get_power_status(timeout=2):
                 # Try using the power on command incase the WOL doesn't work
                 _LOGGER.debug("Sends power command asynchronously")
-                self._event_loop.create_task(self._send_command('Power'))
+                self._event_loop.create_task(self._send_command("Power"))
         else:
-            await self._send_command('Power')
+            await self._send_command("Power")
 
     def get_apps(self):
         """Get the apps from the stored dict."""
@@ -868,210 +816,210 @@ class SonyDevice:
     async def volume_up(self):
         # pylint: disable=invalid-name
         """Send the command 'VolumeUp' to the connected device."""
-        await self._send_command('VolumeUp')
+        await self._send_command("VolumeUp")
 
     async def volume_down(self):
         # pylint: disable=invalid-name
         """Send the command 'VolumeDown' to the connected device."""
-        await self._send_command('VolumeDown')
+        await self._send_command("VolumeDown")
 
     async def mute(self):
         # pylint: disable=invalid-name
         """Send the command 'Mute' to the connected device."""
-        await self._send_command('Mute')
+        await self._send_command("Mute")
 
     async def up(self):
         # pylint: disable=invalid-name
         """Send the command 'up' to the connected device."""
-        await self._send_command('Up')
+        await self._send_command("Up")
 
     async def confirm(self):
         """Send the command 'confirm' to the connected device."""
-        await self._send_command('Confirm')
+        await self._send_command("Confirm")
 
     async def down(self):
         """Send the command 'down' to the connected device."""
-        await self._send_command('Down')
+        await self._send_command("Down")
 
     async def right(self):
         """Send the command 'right' to the connected device."""
-        await self._send_command('Right')
+        await self._send_command("Right")
 
     async def left(self):
         """Send the command 'left' to the connected device."""
-        await self._send_command('Left')
+        await self._send_command("Left")
 
     async def home(self):
         """Send the command 'home' to the connected device."""
-        await self._send_command('Home')
+        await self._send_command("Home")
 
     async def options(self):
         """Send the command 'options' to the connected device."""
-        await self._send_command('Options')
+        await self._send_command("Options")
 
     async def returns(self):
         """Send the command 'returns' to the connected device."""
-        await self._send_command('Return')
+        await self._send_command("Return")
 
     async def num1(self):
         """Send the command 'num1' to the connected device."""
-        await self._send_command('Num1')
+        await self._send_command("Num1")
 
     async def num2(self):
         """Send the command 'num2' to the connected device."""
-        await self._send_command('Num2')
+        await self._send_command("Num2")
 
     async def num3(self):
         """Send the command 'num3' to the connected device."""
-        await self._send_command('Num3')
+        await self._send_command("Num3")
 
     async def num4(self):
         """Send the command 'num4' to the connected device."""
-        await self._send_command('Num4')
+        await self._send_command("Num4")
 
     async def num5(self):
         """Send the command 'num5' to the connected device."""
-        await self._send_command('Num5')
+        await self._send_command("Num5")
 
     async def num6(self):
         """Send the command 'num6' to the connected device."""
-        await self._send_command('Num6')
+        await self._send_command("Num6")
 
     async def num7(self):
         """Send the command 'num7' to the connected device."""
-        await self._send_command('Num7')
+        await self._send_command("Num7")
 
     async def num8(self):
         """Send the command 'num8' to the connected device."""
-        await self._send_command('Num8')
+        await self._send_command("Num8")
 
     async def num9(self):
         """Send the command 'num9' to the connected device."""
-        await self._send_command('Num9')
+        await self._send_command("Num9")
 
     async def num0(self):
         """Send the command 'num0' to the connected device."""
-        await self._send_command('Num0')
+        await self._send_command("Num0")
 
     async def display(self):
         """Send the command 'display' to the connected device."""
-        await self._send_command('Display')
+        await self._send_command("Display")
 
     async def audio(self):
         """Send the command 'audio' to the connected device."""
-        await self._send_command('Audio')
+        await self._send_command("Audio")
 
     async def sub_title(self):
         """Send the command 'subTitle' to the connected device."""
-        await self._send_command('SubTitle')
+        await self._send_command("SubTitle")
 
     async def favorites(self):
         """Send the command 'favorites' to the connected device."""
-        await self._send_command('Favorites')
+        await self._send_command("Favorites")
 
     async def yellow(self):
         """Send the command 'yellow' to the connected device."""
-        await self._send_command('Yellow')
+        await self._send_command("Yellow")
 
     async def blue(self):
         """Send the command 'blue' to the connected device."""
-        await self._send_command('Blue')
+        await self._send_command("Blue")
 
     async def red(self):
         """Send the command 'red' to the connected device."""
-        await self._send_command('Red')
+        await self._send_command("Red")
 
     async def green(self):
         """Send the command 'green' to the connected device."""
-        await self._send_command('Green')
+        await self._send_command("Green")
 
     async def play(self):
         """Send the command 'play' to the connected device."""
-        await self._send_command('Play')
+        await self._send_command("Play")
 
     async def stop(self):
         """Send the command 'stop' to the connected device."""
-        await self._send_command('Stop')
+        await self._send_command("Stop")
 
     async def pause(self):
         """Send the command 'pause' to the connected device."""
-        await self._send_command('Pause')
+        await self._send_command("Pause")
 
     async def rewind(self):
         """Send the command 'rewind' to the connected device."""
-        await self._send_command('Rewind')
+        await self._send_command("Rewind")
 
     async def forward(self):
         """Send the command 'forward' to the connected device."""
-        await self._send_command('Forward')
+        await self._send_command("Forward")
 
     async def prev(self):
         """Send the command 'prev' to the connected device."""
-        await self._send_command('Prev')
+        await self._send_command("Prev")
 
     async def next(self):
         """Send the command 'next' to the connected device."""
-        await self._send_command('Next')
+        await self._send_command("Next")
 
     async def replay(self):
         """Send the command 'replay' to the connected device."""
-        await self._send_command('Replay')
+        await self._send_command("Replay")
 
     async def advance(self):
         """Send the command 'advance' to the connected device."""
-        await self._send_command('Advance')
+        await self._send_command("Advance")
 
     async def angle(self):
         """Send the command 'angle' to the connected device."""
-        await self._send_command('Angle')
+        await self._send_command("Angle")
 
     async def top_menu(self):
         """Send the command 'top_menu' to the connected device."""
-        await self._send_command('TopMenu')
+        await self._send_command("TopMenu")
 
     async def pop_up_menu(self):
         """Send the command 'pop_up_menu' to the connected device."""
-        await self._send_command('PopUpMenu')
+        await self._send_command("PopUpMenu")
 
     async def eject(self):
         """Send the command 'eject' to the connected device."""
-        await self._send_command('Eject')
+        await self._send_command("Eject")
 
     async def karaoke(self):
         """Send the command 'karaoke' to the connected device."""
-        await self._send_command('Karaoke')
+        await self._send_command("Karaoke")
 
     async def netflix(self):
         """Send the command 'netflix' to the connected device."""
-        await self._send_command('Netflix')
+        await self._send_command("Netflix")
 
     async def mode_3d(self):
         """Send the command 'mode_3d' to the connected device."""
-        await self._send_command('Mode3D')
+        await self._send_command("Mode3D")
 
     async def zoom_in(self):
         """Send the command 'zoom_in' to the connected device."""
-        await self._send_command('ZoomIn')
+        await self._send_command("ZoomIn")
 
     async def zoom_out(self):
         """Send the command 'zoom_out' to the connected device."""
-        await self._send_command('ZoomOut')
+        await self._send_command("ZoomOut")
 
     async def browser_back(self):
         """Send the command 'browser_back' to the connected device."""
-        await self._send_command('BrowserBack')
+        await self._send_command("BrowserBack")
 
     async def browser_forward(self):
         """Send the command 'browser_forward' to the connected device."""
-        await self._send_command('BrowserForward')
+        await self._send_command("BrowserForward")
 
     async def browser_bookmark_list(self):
         """Send the command 'browser_bookmarkList' to the connected device."""
-        await self._send_command('BrowserBookmarkList')
+        await self._send_command("BrowserBookmarkList")
 
     async def list(self):
         """Send the command 'list' to the connected device."""
-        await self._send_command('List')
+        await self._send_command("List")
 
 
 def xml_search_helper(data, param):

@@ -11,11 +11,6 @@ import os
 import socket
 from enum import IntEnum
 
-from sonyapilib.device import SonyDevice, AuthenticationResult
-
-import config
-from discover import async_identify_sonybluray_devices
-from config import DeviceInstance
 from ucapi import (
     AbortDriverSetup,
     DriverSetupRequest,
@@ -28,7 +23,11 @@ from ucapi import (
     UserDataResponse,
 )
 
-from const import IRCC_PORT, DMR_PORT, APP_PORT
+import config
+from config import DeviceInstance
+from const import APP_PORT, DMR_PORT, IRCC_PORT
+from discover import async_identify_sonybluray_devices
+from sonyapilib.device import AuthenticationResult, SonyDevice
 
 _LOG = logging.getLogger(__name__)
 
@@ -282,8 +281,13 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                             "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
                         },
                         "field": {
-                            "number": {"value": _reconfigured_device.ircc_port, "min": 1, "max": 65535, "steps": 1,
-                                       "decimals": 0}
+                            "number": {
+                                "value": _reconfigured_device.ircc_port,
+                                "min": 1,
+                                "max": 65535,
+                                "steps": 1,
+                                "decimals": 0,
+                            }
                         },
                     },
                     {
@@ -293,8 +297,13 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                             "fr": "Numéro de port DMR",
                         },
                         "field": {
-                            "number": {"value": _reconfigured_device.dmr_port, "min": 1, "max": 65535, "steps": 1,
-                                       "decimals": 0}
+                            "number": {
+                                "value": _reconfigured_device.dmr_port,
+                                "min": 1,
+                                "max": 65535,
+                                "steps": 1,
+                                "decimals": 0,
+                            }
                         },
                     },
                     {
@@ -304,15 +313,22 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                             "fr": "Numéro de port application",
                         },
                         "field": {
-                            "number": {"value": _reconfigured_device.app_port, "min": 1, "max": 65535, "steps": 1,
-                                       "decimals": 0}
+                            "number": {
+                                "value": _reconfigured_device.app_port,
+                                "min": 1,
+                                "max": 65535,
+                                "steps": 1,
+                                "decimals": 0,
+                            }
                         },
                     },
                     {
                         "field": {"text": {"value": _reconfigured_device.password_key}},
                         "id": "password_key",
-                        "label": {"en": "Password key (leave blank if unknown)",
-                                  "fr": "Clé du mot de passe (laisser vide si inconnu)"},
+                        "label": {
+                            "en": "Password key (leave blank if unknown)",
+                            "fr": "Clé du mot de passe (laisser vide si inconnu)",
+                        },
                     },
                     {
                         "id": "always_on",
@@ -329,7 +345,7 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                             "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
                         },
                         "field": {"checkbox": {"value": _reconfigured_device.polling}},
-                    }
+                    },
                 ],
             )
         case _:
@@ -369,7 +385,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         for device in devices:
             device_info = {
                 "id": device.get("host"),
-                "label": {"en": f"{device.get('manufacturer')} {device.get('friendlyName')} [{device.get('host')}]"},
+                "label": {"en": f"{device.get("manufacturer")} {device.get("friendlyName")} [{device.get("host")}]"},
             }
             dropdown_items.append(device_info)
 
@@ -391,71 +407,70 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     ]
 
     if address:
-        input_fields.extend([
-            {
-                "id": "ircc_port",
-                "label": {
-                    "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
-                    "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
+        input_fields.extend(
+            [
+                {
+                    "id": "ircc_port",
+                    "label": {
+                        "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
+                        "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
+                    },
+                    "field": {"number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
                 },
-                "field": {
-                    "number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                {
+                    "id": "dmr_port",
+                    "label": {
+                        "en": "DMR port number",
+                        "fr": "Numéro de port DMR",
+                    },
+                    "field": {"number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
                 },
-            },
-            {
-                "id": "dmr_port",
-                "label": {
-                    "en": "DMR port number",
-                    "fr": "Numéro de port DMR",
+                {
+                    "id": "app_port",
+                    "label": {
+                        "en": "Application port number",
+                        "fr": "Numéro de port application",
+                    },
+                    "field": {"number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
                 },
-                "field": {
-                    "number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
-                },
-            },
-            {
-                "id": "app_port",
-                "label": {
-                    "en": "Application port number",
-                    "fr": "Numéro de port application",
-                },
-                "field": {
-                    "number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
-                },
-            }
-        ]
+            ]
         )
 
-    input_fields.extend([
-        {
-            "field": {"text": {"value": ""}},
-            "id": "password_key",
-            "label": {"en": "Password key (leave blank if unknown)",
-                      "fr": "Clé du mot de passe (laisser vide si inconnu)"},
-        },
-        {
-            "id": "always_on",
-            "label": {
-                "en": "Keep connection alive (faster initialization, but consumes more battery)",
-                "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
+    input_fields.extend(
+        [
+            {
+                "field": {"text": {"value": ""}},
+                "id": "password_key",
+                "label": {
+                    "en": "Password key (leave blank if unknown)",
+                    "fr": "Clé du mot de passe (laisser vide si inconnu)",
+                },
             },
-            "field": {"checkbox": {"value": False}},
-        },
-        {
-            "id": "polling",
-            "label": {
-                "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
-                "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
+            {
+                "id": "always_on",
+                "label": {
+                    "en": "Keep connection alive (faster initialization, but consumes more battery)",
+                    "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
+                },
+                "field": {"checkbox": {"value": False}},
             },
-            "field": {"checkbox": {"value": False}},
-        }
-    ])
+            {
+                "id": "polling",
+                "label": {
+                    "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
+                    "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
+                },
+                "field": {"checkbox": {"value": False}},
+            },
+        ]
+    )
 
     return RequestUserInput(
         {
             "en": "Please choose your Sony device",
             "fr": "Sélectionnez votre lecteur Sony",
         },
-        input_fields
+        input_fields,
     )
 
 
@@ -506,9 +521,14 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
         _client_name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
         if _client_name is None:
             _client_name = "Sony"
-        _sony_device = SonyDevice(host=_host, nickname=_client_name, ircc_port=_ircc_port, dmr_port=_dmr_port,
-                                  app_port=_app_port,
-                                  psk=_password_key)
+        _sony_device = SonyDevice(
+            host=_host,
+            nickname=_client_name,
+            ircc_port=_ircc_port,
+            dmr_port=_dmr_port,
+            app_port=_app_port,
+            psk=_password_key,
+        )
 
         try:
             await _sony_device.init_device()
@@ -552,10 +572,20 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=_device_name, address=_host, always_on=_always_on,
-                       mac_address=_sony_device.mac,
-                       password_key=_password_key, ircc_port=_ircc_port, dmr_port=_dmr_port, app_port=_app_port,
-                       pin_code=None, client_name=_client_name, polling=_polling)
+        DeviceInstance(
+            id=unique_id,
+            name=_device_name,
+            address=_host,
+            always_on=_always_on,
+            mac_address=_sony_device.mac,
+            password_key=_password_key,
+            ircc_port=_ircc_port,
+            dmr_port=_dmr_port,
+            app_port=_app_port,
+            pin_code=None,
+            client_name=_client_name,
+            polling=_polling,
+        )
     )  # triggers Sony BR instance creation
     config.devices.store()
 
@@ -608,11 +638,20 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     _LOG.error("Device registered successfully %s (%s)", _sony_device.host, _sony_device.mac)
 
     config.devices.add(
-        DeviceInstance(id=unique_id, name=_device_name, address=_sony_device.host,
-                       always_on=_always_on, mac_address=_sony_device.mac,
-                       password_key=_sony_device.psk, ircc_port=_sony_device.ircc_port, dmr_port=_sony_device.dmr_port,
-                       app_port=_sony_device.app_port,
-                       pin_code=pin_code, client_name=_client_name, polling=_polling)
+        DeviceInstance(
+            id=unique_id,
+            name=_device_name,
+            address=_sony_device.host,
+            always_on=_always_on,
+            mac_address=_sony_device.mac,
+            password_key=_sony_device.psk,
+            ircc_port=_sony_device.ircc_port,
+            dmr_port=_sony_device.dmr_port,
+            app_port=_sony_device.app_port,
+            pin_code=pin_code,
+            client_name=_client_name,
+            polling=_polling,
+        )
     )  # triggers Sony BR instance creation
     config.devices.store()
 

@@ -4,16 +4,19 @@ Media-player entity functions.
 :copyright: (c) 2023 by Unfolded Circle ApS.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
+
 import asyncio
 import logging
 from typing import Any
 
-from config import create_entity_id, DeviceInstance
-from client import SonyBlurayDevice
 from ucapi import EntityTypes, Remote, StatusCodes
-from ucapi.remote import Attributes, Commands, States as RemoteStates, Options, Features
 from ucapi.media_player import States as MediaStates
-from const import SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, KEYS, SONY_SIMPLE_COMMANDS
+from ucapi.remote import Attributes, Commands, Features, Options
+from ucapi.remote import States as RemoteStates
+
+from client import SonyBlurayDevice
+from config import DeviceInstance, create_entity_id
+from const import KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, SONY_SIMPLE_COMMANDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ SONY_REMOTE_STATE_MAPPING = {
     MediaStates.ON: RemoteStates.ON,
     MediaStates.PLAYING: RemoteStates.ON,
     MediaStates.PAUSED: RemoteStates.ON,
-    MediaStates.STANDBY: RemoteStates.ON
+    MediaStates.STANDBY: RemoteStates.ON,
 }
 
 
@@ -46,17 +49,16 @@ class SonyRemote(Remote):
             features,
             attributes,
             button_mapping=SONY_REMOTE_BUTTONS_MAPPING,
-            ui_pages=SONY_REMOTE_UI_PAGES
+            ui_pages=SONY_REMOTE_UI_PAGES,
         )
 
-    def getIntParam(self, param: str, params: dict[str, Any], default:int):
+    def getIntParam(self, param: str, params: dict[str, Any], default: int):
         # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
         value = params.get(param, default)
         if isinstance(value, str) and len(value) > 0:
             return int(float(value))
         else:
             return default
-
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
         """
@@ -76,7 +78,7 @@ class SonyRemote(Remote):
 
         repeat = self.getIntParam("repeat", params, 1)
         res = StatusCodes.OK
-        for i in range (0, repeat):
+        for i in range(0, repeat):
             res = await self.handle_command(cmd_id, params)
         return res
 
@@ -98,7 +100,7 @@ class SonyRemote(Remote):
         elif cmd_id == Commands.SEND_CMD:
             return await self._device.send_key(command)
         elif cmd_id == Commands.SEND_CMD_SEQUENCE:
-            commands = params.get("sequence", [])#.split(",")
+            commands = params.get("sequence", [])  # .split(",")
             res = StatusCodes.OK
             for command in commands:
                 res = await self.handle_command(Commands.SEND_CMD, {"command": command, "params": params})
@@ -137,6 +139,3 @@ class SonyRemote(Remote):
 
         _LOG.debug("SonyRemote update attributes %s -> %s", update, attributes)
         return attributes
-
-
-

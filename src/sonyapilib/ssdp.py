@@ -1,4 +1,5 @@
 """SSDP Implementation"""
+
 import email
 import logging
 import socket
@@ -30,11 +31,10 @@ class SSDPResponse:
 
     def __repr__(self):
         """Define how string representation looks"""
-        return "<SSDPResponse({location}, {st}, {usn})>"\
-            .format(**self.__dict__)
+        return "<SSDPResponse({location}, {st}, {usn})>".format(**self.__dict__)
 
 
-class SSDPDiscovery():
+class SSDPDiscovery:
     # pylint: disable=too-few-public-methods
     """Discover devices via the ssdp protocol."""
 
@@ -43,7 +43,7 @@ class SSDPDiscovery():
         responses = {}
         lines = ""
         http_ok = "HTTP/1.1 200 OK"
-        for line in data.split('\r\n'):
+        for line in data.split("\r\n"):
             if http_ok in line and lines:
                 response = SSDPResponse(lines)
                 responses[response.location] = response
@@ -51,7 +51,7 @@ class SSDPDiscovery():
             elif http_ok not in line:
                 line_content = line.split(":")
                 if len(line_content) >= 2 and line_content[1]:
-                    lines += line + '\r\n'
+                    lines += line + "\r\n"
         return list(responses.values())
 
     @staticmethod
@@ -62,15 +62,12 @@ class SSDPDiscovery():
 
         # fppp
         host = ("239.255.255.250", 1900)
-        message = "\r\n".join([
-            'M-SEARCH * HTTP/1.1',
-            'HOST: {0}:{1}',
-            'MAN: "ssdp:discover"',
-            'ST: {st}', 'MX: {mx}', '', ''])
+        message = "\r\n".join(
+            ["M-SEARCH * HTTP/1.1", "HOST: {0}:{1}", 'MAN: "ssdp:discover"', "ST: {st}", "MX: {mx}", "", ""]
+        )
         # using a dict to prevent duplicated entries.
         for _ in range(0, retries):
-            sock = socket.socket(
-                socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
 
@@ -78,8 +75,7 @@ class SSDPDiscovery():
             for _ in range(0, retries):
                 # sending it more than once will
                 # decrease the probability of a timeout
-                sock.sendto(str.encode(message.format(
-                    *host, st=service, mx=mx)), host)
+                sock.sendto(str.encode(message.format(*host, st=service, mx=mx)), host)
 
             data = ""
             while True:

@@ -111,7 +111,8 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
                 api.configured_entities.update_attributes(entity_id, attributes)
             if isinstance(entity, remote.SonyRemote):
                 attributes[ucapi.remote.Attributes.STATE] = remote.SONY_REMOTE_STATE_MAPPING.get(
-                    attributes.get(MediaAttr.STATE, ucapi.remote.States.UNKNOWN))
+                    attributes.get(MediaAttr.STATE, ucapi.remote.States.UNKNOWN)
+                )
                 api.configured_entities.update_attributes(entity_id, attributes)
             continue
 
@@ -135,7 +136,7 @@ async def on_unsubscribe_entities(entity_ids: list[str]) -> None:
 
     # Keep devices that are used by other configured entities not in this list
     for entity in api.configured_entities.get_all():
-        entity_id = entity.get('entity_id')
+        entity_id = entity.get("entity_id")
         if entity_id in entity_ids:
             continue
         device_id = device_from_entity_id(entity_id)
@@ -170,14 +171,15 @@ async def on_device_connected(device_id: str):
             api.configured_entities.update_attributes(
                 entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
             )
-            if (configured_entity.attributes[ucapi.media_player.Attributes.STATE]
-                    == ucapi.media_player.States.UNAVAILABLE):
+            if (
+                configured_entity.attributes[ucapi.media_player.Attributes.STATE]
+                == ucapi.media_player.States.UNAVAILABLE
+            ):
                 api.configured_entities.update_attributes(
                     entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
                 )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
-            if (configured_entity.attributes[ucapi.remote.Attributes.STATE]
-                    == ucapi.remote.States.UNAVAILABLE):
+            if configured_entity.attributes[ucapi.remote.Attributes.STATE] == ucapi.remote.States.UNAVAILABLE:
                 api.configured_entities.update_attributes(
                     entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.OFF}
                 )
@@ -318,8 +320,7 @@ def _register_available_entities(config_device: config.DeviceInstance, device: S
     """
     # plain and simple for now: only one media_player per AVR device
     # entity = media_player.create_entity(device)
-    entities = [media_player.SonyMediaPlayer(config_device, device),
-                remote.SonyRemote(config_device, device)]
+    entities = [media_player.SonyMediaPlayer(config_device, device), remote.SonyRemote(config_device, device)]
     for entity in entities:
         if api.available_entities.contains(entity.id):
             api.available_entities.remove(entity.id)
@@ -377,9 +378,7 @@ async def main():
     logging.getLogger("sonyapilib.device").setLevel(level)
     # logging.getLogger("sonyapilib.device").setLevel(level)
 
-    config.devices = config.Devices(
-        api.config_dir_path, on_device_added, on_device_removed, on_device_updated
-    )
+    config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     for device in config.devices.all():
         _LOG.debug("Sony device %s %s", device.id, device.address)
         _configure_new_device(device, connect=False)

@@ -47,10 +47,7 @@ AV_DMR_TAG = f"{AV_XMLNS}X_StandardDMR"
 AV_IRCC_TAG = f"{AV_XMLNS}X_IRCC_DeviceInfo"
 AV_DMR_TAG2 = "X_StandardDMR"
 
-SUPPORTED_DEVICETYPES = [
-    "urn:schemas-upnp-org:device:Basic:1",
-    "urn:schemas-upnp-org:device:MediaRenderer:1"
-]
+SUPPORTED_DEVICETYPES = ["urn:schemas-upnp-org:device:Basic:1", "urn:schemas-upnp-org:device:MediaRenderer:1"]
 
 SUPPORTED_MANUFACTURERS = ["Sony Corporation"]
 
@@ -188,7 +185,7 @@ def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
         # Look for manufacturer "SoftAtHome" in response.
         # Using "try" in case tags are not available in XML
         device = {}
-        device_xml: ET.Element|None = None
+        device_xml: ET.Element | None = None
 
         device["manufacturer"] = root.find(SCPD_DEVICE).find(SCPD_MANUFACTURER).text
 

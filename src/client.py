@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 # coding: utf-8
 import asyncio
-from functools import wraps
-from typing import Callable, Concatenate, Awaitable, Any, Coroutine, TypeVar, ParamSpec
-
-from asyncio import Lock, CancelledError, AbstractEventLoop
 import logging
+from asyncio import AbstractEventLoop, CancelledError, Lock
 from enum import IntEnum
+from functools import wraps
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import ucapi.media_player
-from config import DeviceInstance
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, States
-from sonyapilib.device import SonyDevice, AuthenticationResult, DeviceState
+
+from config import DeviceInstance
+from sonyapilib.device import AuthenticationResult, DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ CONNECTION_RETRIES = 10
 
 
 def cmd_wrapper(
-        func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
+    func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
 ) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
     """Catch command exceptions."""
 
@@ -67,9 +67,7 @@ def cmd_wrapper(
                 async with asyncio.timeout(5):
                     await connect_task
             except asyncio.TimeoutError:
-                log_function(
-                    "Timeout for reconnect, command won't be sent"
-                )
+                log_function("Timeout for reconnect, command won't be sent")
                 pass
             else:
                 try:
@@ -84,9 +82,7 @@ def cmd_wrapper(
                     )
             return ucapi.StatusCodes.BAD_REQUEST
         except Exception as ex:
-            _LOGGER.error(
-                "Unknown error %s",
-                func.__name__)
+            _LOGGER.error("Unknown error %s", func.__name__)
 
     return wrapper
 
@@ -94,6 +90,7 @@ def cmd_wrapper(
 class SonyBlurayDevice(object):
     def __init__(self, device_config: DeviceInstance, timeout=3, refresh_frequency=60):
         from datetime import timedelta
+
         self._id = device_config.id
         self._name = device_config.name
         self._hostname = device_config.address
@@ -117,11 +114,16 @@ class SonyBlurayDevice(object):
             self._connected = False
             self._state = States.OFF
 
-        if self._device_config.password_key == '':
+        if self._device_config.password_key == "":
             self._device_config.password_key = None
-        self._sony_device = SonyDevice(host=self._device_config.address, app_port=self._device_config.app_port,
-                                       ircc_port=self._device_config.ircc_port, dmr_port=self._device_config.dmr_port,
-                                       psk=self._device_config.password_key, nickname=self._device_config.client_name)
+        self._sony_device = SonyDevice(
+            host=self._device_config.address,
+            app_port=self._device_config.app_port,
+            ircc_port=self._device_config.ircc_port,
+            dmr_port=self._device_config.dmr_port,
+            psk=self._device_config.password_key,
+            nickname=self._device_config.client_name,
+        )
         self._sony_device.pin = self._device_config.pin_code
         self._sony_device.mac = self._device_config.mac_address
         if self._device_config.pin_code is None:
@@ -222,18 +224,12 @@ class SonyBlurayDevice(object):
             update_data[Attributes.STATE] = self.state
 
         if update_data:
-            self.events.emit(
-                Events.UPDATE,
-                self.id,
-                update_data
-            )
+            self.events.emit(Events.UPDATE, self.id, update_data)
 
     @property
     def attributes(self) -> dict[str, any]:
         """Return the device attributes."""
-        updated_data = {
-            Attributes.STATE: self.state
-        }
+        updated_data = {Attributes.STATE: self.state}
         return updated_data
 
     @property

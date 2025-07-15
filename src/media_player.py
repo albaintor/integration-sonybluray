@@ -8,11 +8,11 @@ Media-player entity functions.
 import logging
 from typing import Any
 
-from client import SonyBlurayDevice
-from config import DeviceInstance, create_entity_id
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
 from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, Options
 
+from client import SonyBlurayDevice
+from config import DeviceInstance, create_entity_id
 from const import SONY_SIMPLE_COMMANDS
 
 _LOG = logging.getLogger(__name__)
@@ -48,22 +48,20 @@ class SonyMediaPlayer(MediaPlayer):
             Features.PREVIOUS,
             Features.NEXT,
             Features.VOLUME_UP_DOWN,
-            Features.MUTE_TOGGLE
+            Features.MUTE_TOGGLE,
         ]
         attributes = {
             Attributes.STATE: device.state,
         }
 
-        options = {
-            Options.SIMPLE_COMMANDS: list(SONY_SIMPLE_COMMANDS.keys())
-        }
+        options = {Options.SIMPLE_COMMANDS: list(SONY_SIMPLE_COMMANDS.keys())}
         super().__init__(
             entity_id,
             config_device.name,
             features,
             attributes,
             device_class=DeviceClasses.STREAMING_BOX,
-            options=options
+            options=options,
         )
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
@@ -199,4 +197,3 @@ class SonyMediaPlayer(MediaPlayer):
             attributes[key] = value
 
         return attributes
-

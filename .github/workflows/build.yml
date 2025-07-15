@@ -13,7 +13,7 @@ on:
 
 env:
   INTG_NAME: sonybluray
-  HASH_FILENAME: uc-src.hash
+  HASH_FILENAME: uc-intg-sonybluray.hash
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
   PYTHON_VER: 3.11.6-0.2.0
 
@@ -60,9 +60,11 @@ jobs:
 
       - name: Add version
         run: |
+          DRIVER_VERSION="v$(jq .version -r driver.json)"
           mkdir -p artifacts/bin
           cd artifacts
-          echo ${{ env.VERSION }} > version.txt
+          # echo ${{ env.VERSION }} > version.txt
+          echo $DRIVER_VERSION > version.txt
           
       - name: Prepare artifacts
         shell: bash
