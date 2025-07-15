@@ -11,14 +11,23 @@ import os
 import socket
 from enum import IntEnum
 
-from ucapi import (AbortDriverSetup, DriverSetupRequest, IntegrationSetupError,
-                   RequestUserInput, SetupAction, SetupComplete, SetupDriver,
-                   SetupError, UserDataResponse)
+from sonyapilib.device import SonyDevice, AuthenticationResult
 
 import config
-from const import APP_PORT, DMR_PORT, IRCC_PORT
 from discover import async_identify_sonybluray_devices
-from sonyapilib.device import AuthenticationResult, SonyDevice
+from ucapi import (
+    AbortDriverSetup,
+    DriverSetupRequest,
+    IntegrationSetupError,
+    RequestUserInput,
+    SetupAction,
+    SetupComplete,
+    SetupDriver,
+    SetupError,
+    UserDataResponse,
+)
+
+from const import IRCC_PORT, DMR_PORT, APP_PORT
 
 _LOG = logging.getLogger(__name__)
 
