@@ -5,9 +5,9 @@
 	"name": { "en": "Sony Bluray" },
 	"icon": "custom:sony.png",
 	"description": {
-		"en": "Control your Sony Bluray with Remote Two.",
-		"de": "Steuere Sony Bluray mit Remote Two.",
-		"fr": "Contrôler votre Sony Bluray avec Remote Two."
+		"en": "Control your Sony Bluray with Remote Two/3.",
+		"de": "Steuere Sony Bluray mit Remote Two/3.",
+		"fr": "Contrôler votre Sony Bluray avec Remote Two/3."
 	},
 	"developer": {
 		"name": "Albaintor",
@@ -40,5 +40,5 @@
 			}
 		]
 	},
-	"release_date": "2025-07-24"
+	"release_date": "2025-07-25"
 }
