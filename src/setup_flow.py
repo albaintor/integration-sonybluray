@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Setup flow for Sony Bluray integration.
 
@@ -6,21 +5,30 @@ Setup flow for Sony Bluray integration.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-
 import asyncio
 import logging
 import os
 import socket
 from enum import IntEnum
 
-from ucapi import (AbortDriverSetup, DriverSetupRequest, IntegrationSetupError,
-                   RequestUserInput, SetupAction, SetupComplete, SetupDriver,
-                   SetupError, UserDataResponse)
+from sonyapilib.device import SonyDevice, AuthenticationResult
 
 import config
-from const import APP_PORT, DMR_PORT, IRCC_PORT
 from discover import async_identify_sonybluray_devices
-from sonyapilib.device import AuthenticationResult, SonyDevice
+from config import DeviceInstance
+from ucapi import (
+    AbortDriverSetup,
+    DriverSetupRequest,
+    IntegrationSetupError,
+    RequestUserInput,
+    SetupAction,
+    SetupComplete,
+    SetupDriver,
+    SetupError,
+    UserDataResponse,
+)
+
+from const import IRCC_PORT, DMR_PORT, APP_PORT
 
 _LOG = logging.getLogger(__name__)
 
@@ -33,14 +41,12 @@ class SetupSteps(IntEnum):
     DISCOVER = 2
     DEVICE_CHOICE = 3
     PAIRING_MODE = 4
-    RECONFIGURE = 5
 
 
 _setup_step = SetupSteps.INIT
 _discovered_devices: list[dict] = []
 _cfg_add_device: bool = False
 _sony_device: SonyDevice | None = None
-_reconfigured_device: config.DeviceInstance | None = None
 _device_name = "Sony Bluray"
 _always_on = False
 _polling = False
@@ -96,8 +102,6 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
             return await handle_device_choice(msg)
         if _setup_step == SetupSteps.PAIRING_MODE:
             return await handle_pairing(msg)
-        if _setup_step == SetupSteps.RECONFIGURE:
-            return await _handle_device_reconfigure(msg)
         _LOG.error("No or invalid user response was received: %s", msg)
     elif isinstance(msg, AbortDriverSetup):
         _LOG.info("Setup was aborted with code: %s", msg.error)
@@ -124,10 +128,6 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
 
     reconfigure = _msg.reconfigure
     _LOG.debug("Starting driver setup, reconfigure=%s", reconfigure)
-
-    # workaround for web-configurator not picking up first response
-    await asyncio.sleep(1)
-
     if reconfigure:
         _setup_step = SetupSteps.CONFIGURATION_MODE
 
@@ -151,15 +151,6 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
 
         # add remove & reset actions if there's at least one configured device
         if dropdown_devices:
-            dropdown_actions.append(
-                {
-                    "id": "configure",
-                    "label": {
-                        "en": "Configure selected device",
-                        "fr": "Configurer l'appareil sélectionné",
-                    },
-                },
-            )
             dropdown_actions.append(
                 {
                     "id": "remove",
@@ -226,7 +217,6 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
     """
     global _setup_step
     global _cfg_add_device
-    global _reconfigured_device
 
     action = msg.input_values["action"]
 
@@ -245,102 +235,6 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
             return SetupComplete()
         case "reset":
             config.devices.clear()  # triggers device instance removal
-        case "configure":
-            # Reconfigure device if the identifier has changed
-            choice = msg.input_values["choice"]
-            selected_device = config.devices.get(choice)
-            if not selected_device:
-                _LOG.warning("Can not configure device from configuration: %s", choice)
-                return SetupError(error_type=IntegrationSetupError.OTHER)
-
-            _setup_step = SetupSteps.RECONFIGURE
-            _reconfigured_device = selected_device
-
-            return RequestUserInput(
-                {
-                    "en": "Configure your Orange decoder",
-                    "fr": "Configurez votre décodeur Orange",
-                },
-                [
-                    {
-                        "field": {"text": {"value": _reconfigured_device.address}},
-                        "id": "address",
-                        "label": {"en": "IP address", "de": "IP-Adresse", "fr": "Adresse IP"},
-                    },
-                    {
-                        "id": "ircc_port",
-                        "label": {
-                            "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
-                            "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.ircc_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "id": "dmr_port",
-                        "label": {
-                            "en": "DMR port number",
-                            "fr": "Numéro de port DMR",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.dmr_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "id": "app_port",
-                        "label": {
-                            "en": "Application port number",
-                            "fr": "Numéro de port application",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.app_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "field": {"text": {"value": _reconfigured_device.password_key}},
-                        "id": "password_key",
-                        "label": {
-                            "en": "Password key (leave blank if unknown)",
-                            "fr": "Clé du mot de passe (laisser vide si inconnu)",
-                        },
-                    },
-                    {
-                        "id": "always_on",
-                        "label": {
-                            "en": "Keep connection alive (faster initialization, but consumes more battery)",
-                            "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
-                        },
-                        "field": {"checkbox": {"value": _reconfigured_device.always_on}},
-                    },
-                    {
-                        "id": "polling",
-                        "label": {
-                            "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
-                            "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
-                        },
-                        "field": {"checkbox": {"value": _reconfigured_device.polling}},
-                    },
-                ],
-            )
         case _:
             _LOG.error("Invalid configuration action: %s", action)
             return SetupError(error_type=IntegrationSetupError.OTHER)
@@ -376,68 +270,66 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
         _LOG.debug("Discovered Sony devices %s", devices)
         _discovered_devices = devices
         for device in devices:
-            device_info = {
+            avr_data = {
                 "id": device.get("host"),
-                "label": {"en": f"{device.get("manufacturer")} {device.get("friendlyName")} [{device.get("host")}]"},
+                "label": {"en": f"{device.get('manufacturer')} {device.get('friendlyName')} [{device.get('host')}]"},
             }
-            dropdown_items.append(device_info)
+            dropdown_items.append(avr_data)
 
     if not dropdown_items:
         _LOG.warning("No Sony device found")
         return SetupError(error_type=IntegrationSetupError.NOT_FOUND)
 
     _setup_step = SetupSteps.DEVICE_CHOICE
-
-    input_fields = [
+    return RequestUserInput(
         {
-            "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
-            "id": "choice",
-            "label": {
-                "en": "Please choose your Sony device. A pairing key may be prompted next.",
-                "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée ensuite",
-            },
-        }
-    ]
-
-    if address:
-        input_fields.extend(
-            [
-                {
-                    "id": "ircc_port",
-                    "label": {
-                        "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
-                        "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
-                    },
-                    "field": {"number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-                {
-                    "id": "dmr_port",
-                    "label": {
-                        "en": "DMR port number",
-                        "fr": "Numéro de port DMR",
-                    },
-                    "field": {"number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-                {
-                    "id": "app_port",
-                    "label": {
-                        "en": "Application port number",
-                        "fr": "Numéro de port application",
-                    },
-                    "field": {"number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-            ]
-        )
-
-    input_fields.extend(
+            "en": "Please choose your Sony device",
+            "fr": "Sélectionnez votre lecteur Sony",
+        },
         [
+            {
+                "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+                "id": "choice",
+                "label": {
+                    "en": "Please choose your Sony device",
+                    "fr": "Sélectionnez votre lecteur Sony",
+                },
+            },
+            {
+                "id": "ircc_port",
+                "label": {
+                    "en": "IRCC port number",
+                    "fr": "Numéro de port IRCC",
+                },
+                "field": {
+                    "number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
+            {
+                "id": "dmr_port",
+                "label": {
+                    "en": "DMR port number",
+                    "fr": "Numéro de port DMR",
+                },
+                "field": {
+                    "number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
+            {
+                "id": "app_port",
+                "label": {
+                    "en": "Application port number",
+                    "fr": "Numéro de port application",
+                },
+                "field": {
+                    "number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}
+                },
+            },
             {
                 "field": {"text": {"value": ""}},
                 "id": "password_key",
-                "label": {
-                    "en": "Password key (leave blank if unknown)",
-                    "fr": "Clé du mot de passe (laisser vide si inconnu)",
-                },
+                "label": {"en": "Password key (leave blank if unknown)",
+                          "fr": "Clé du mot de passe (laisser vide si inconnu)"},
             },
             {
                 "id": "always_on",
@@ -455,15 +347,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                 },
                 "field": {"checkbox": {"value": False}},
             },
-        ]
-    )
-
-    return RequestUserInput(
-        {
-            "en": "Please choose your Sony device",
-            "fr": "Sélectionnez votre lecteur Sony",
-        },
-        input_fields,
+        ],
     )
 
 
@@ -498,15 +382,9 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
 
     _device_name = "Sony Bluray"
     if _discovered_devices:
-        for device in _discovered_devices:
-            if device.get("host") == _host:
-                _device_name = f"Sony {device.get("friendlyName")}"
-                if device.get("dmrPort", 0) != 0:
-                    _dmr_port = device.get("dmrPort", 0)
-                if device.get("irccPort", 0) != 0:
-                    _ircc_port = device.get("irccPort", 0)
-                else:
-                    _ircc_port = _dmr_port
+        for _sony_device in _discovered_devices:
+            if _sony_device.get('host') == _host:
+                _device_name = f"Sony {_sony_device.get('friendlyName')}"
 
     _LOG.debug(f"Chosen Sony Bluray: {_device_name} {_host}. Trying to connect and retrieve device information...")
     try:
@@ -514,14 +392,9 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
         _client_name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
         if _client_name is None:
             _client_name = "Sony"
-        _sony_device = SonyDevice(
-            host=_host,
-            nickname=_client_name,
-            ircc_port=_ircc_port,
-            dmr_port=_dmr_port,
-            app_port=_app_port,
-            psk=_password_key,
-        )
+        _sony_device = SonyDevice(host=_host, nickname=_client_name, ircc_port=_ircc_port, dmr_port=_dmr_port,
+                                  app_port=_app_port,
+                                  psk=_password_key)
 
         try:
             await _sony_device.init_device()
@@ -565,20 +438,9 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
-        config.DeviceInstance(
-            id=unique_id,
-            name=_device_name,
-            address=_host,
-            always_on=_always_on,
-            mac_address=_sony_device.mac,
-            password_key=_password_key,
-            ircc_port=_ircc_port,
-            dmr_port=_dmr_port,
-            app_port=_app_port,
-            pin_code=None,
-            client_name=_client_name,
-            polling=_polling,
-        )
+        DeviceInstance(id=unique_id, name=_device_name, address=_host, always_on=_always_on, mac_address=_sony_device.mac,
+                       password_key=_password_key, ircc_port=_ircc_port, dmr_port=_dmr_port, app_port=_app_port,
+                       pin_code=None, client_name=_client_name, polling=_polling)
     )  # triggers Sony BR instance creation
     config.devices.store()
 
@@ -631,61 +493,17 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     _LOG.error("Device registered successfully %s (%s)", _sony_device.host, _sony_device.mac)
 
     config.devices.add(
-        config.DeviceInstance(
-            id=unique_id,
-            name=_device_name,
-            address=_sony_device.host,
-            always_on=_always_on,
-            mac_address=_sony_device.mac,
-            password_key=_sony_device.psk,
-            ircc_port=_sony_device.ircc_port,
-            dmr_port=_sony_device.dmr_port,
-            app_port=_sony_device.app_port,
-            pin_code=pin_code,
-            client_name=_client_name,
-            polling=_polling,
-        )
+        DeviceInstance(id=unique_id, name=_device_name, address=_sony_device.host,
+                       always_on=_always_on, mac_address=_sony_device.mac,
+                       password_key=_sony_device.psk, ircc_port=_sony_device.ircc_port, dmr_port=_sony_device.dmr_port,
+                       app_port=_sony_device.app_port,
+                       pin_code=pin_code, client_name=_client_name, polling=_polling)
     )  # triggers Sony BR instance creation
     config.devices.store()
-
-    _LOG.debug("Supported actions : %s", _sony_device.actions.keys())
-    _LOG.debug("Supported commands : %s", _sony_device.commands.keys())
 
     # AVR device connection will be triggered with subscribe_entities request
 
     await asyncio.sleep(1)
 
     _LOG.info("Setup successfully completed for %s (%s)", identifier, unique_id)
-    return SetupComplete()
-
-
-async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
-    """
-    Process reconfiguration of a registered Android TV device.
-
-    :param msg: response data from the requested user data
-    :return: the setup action on how to continue: SetupComplete after updating configuration
-    """
-    # flake8: noqa:F824
-    # pylint: disable=W0602
-    global _reconfigured_device
-
-    if _reconfigured_device is None:
-        return SetupError()
-
-    address = msg.input_values.get("address", "")
-
-    _LOG.debug("User has changed configuration")
-    _reconfigured_device.address = address
-    _reconfigured_device.ircc_port = msg.input_values.get("ircc_port", IRCC_PORT)
-    _reconfigured_device.dmr_port = msg.input_values.get("dmr_port", DMR_PORT)
-    _reconfigured_device.app_port_port = msg.input_values.get("app_port", APP_PORT)
-    _reconfigured_device.polling = msg.input_values.get("polling", "false") == "true"
-    _reconfigured_device.always_on = msg.input_values.get("always_on", "false") == "true"
-    _reconfigured_device.password_key = msg.input_values.get("password_key", None)
-
-    config.devices.add_or_update(_reconfigured_device)  # triggers ATV instance update
-    await asyncio.sleep(1)
-    _LOG.info("Setup successfully completed for %s", _reconfigured_device.name)
-
     return SetupComplete()
