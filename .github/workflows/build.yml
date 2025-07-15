@@ -56,7 +56,7 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onedir --name driver src/driver.py --paths=/workspace/src"
+              pyinstaller --clean --onedir --name driver src/driver.py --additional-hooks-dir=src"
 
       - name: Add version
         run: |
@@ -72,6 +72,7 @@ jobs:
           cp -r dist/driver/* artifacts/bin
           cp driver.json artifacts/
           cp sony.png artifacts/
+          cp build/driver/xref-driver.html artifacts/
           echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-aarch64" >> $GITHUB_ENV
           
       - name: Create upload artifact
