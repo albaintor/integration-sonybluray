@@ -11,23 +11,14 @@ import os
 import socket
 from enum import IntEnum
 
-from sonyapilib.device import SonyDevice, AuthenticationResult
+from ucapi import (AbortDriverSetup, DriverSetupRequest, IntegrationSetupError,
+                   RequestUserInput, SetupAction, SetupComplete, SetupDriver,
+                   SetupError, UserDataResponse)
 
 import config
+from const import APP_PORT, DMR_PORT, IRCC_PORT
 from discover import async_identify_sonybluray_devices
-from ucapi import (
-    AbortDriverSetup,
-    DriverSetupRequest,
-    IntegrationSetupError,
-    RequestUserInput,
-    SetupAction,
-    SetupComplete,
-    SetupDriver,
-    SetupError,
-    UserDataResponse,
-)
-
-from const import IRCC_PORT, DMR_PORT, APP_PORT
+from sonyapilib.device import AuthenticationResult, SonyDevice
 
 _LOG = logging.getLogger(__name__)
 
@@ -274,78 +265,78 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                         "id": "address",
                         "label": {"en": "IP address", "de": "IP-Adresse", "fr": "Adresse IP"},
                     },
-                    {
-                        "id": "ircc_port",
-                        "label": {
-                            "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
-                            "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.ircc_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "id": "dmr_port",
-                        "label": {
-                            "en": "DMR port number",
-                            "fr": "Numéro de port DMR",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.dmr_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "id": "app_port",
-                        "label": {
-                            "en": "Application port number",
-                            "fr": "Numéro de port application",
-                        },
-                        "field": {
-                            "number": {
-                                "value": _reconfigured_device.app_port,
-                                "min": 1,
-                                "max": 65535,
-                                "steps": 1,
-                                "decimals": 0,
-                            }
-                        },
-                    },
-                    {
-                        "field": {"text": {"value": _reconfigured_device.password_key}},
-                        "id": "password_key",
-                        "label": {
-                            "en": "Password key (leave blank if unknown)",
-                            "fr": "Clé du mot de passe (laisser vide si inconnu)",
-                        },
-                    },
-                    {
-                        "id": "always_on",
-                        "label": {
-                            "en": "Keep connection alive (faster initialization, but consumes more battery)",
-                            "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
-                        },
-                        "field": {"checkbox": {"value": _reconfigured_device.always_on}},
-                    },
-                    {
-                        "id": "polling",
-                        "label": {
-                            "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
-                            "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
-                        },
-                        "field": {"checkbox": {"value": _reconfigured_device.polling}},
-                    },
+                    # {
+                    #     "id": "ircc_port",
+                    #     "label": {
+                    #         "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
+                    #         "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
+                    #     },
+                    #     "field": {
+                    #         "number": {
+                    #             "value": _reconfigured_device.ircc_port,
+                    #             "min": 1,
+                    #             "max": 65535,
+                    #             "steps": 1,
+                    #             "decimals": 0,
+                    #         }
+                    #     },
+                    # },
+                    # {
+                    #     "id": "dmr_port",
+                    #     "label": {
+                    #         "en": "DMR port number",
+                    #         "fr": "Numéro de port DMR",
+                    #     },
+                    #     "field": {
+                    #         "number": {
+                    #             "value": _reconfigured_device.dmr_port,
+                    #             "min": 1,
+                    #             "max": 65535,
+                    #             "steps": 1,
+                    #             "decimals": 0,
+                    #         }
+                    #     },
+                    # },
+                    # {
+                    #     "id": "app_port",
+                    #     "label": {
+                    #         "en": "Application port number",
+                    #         "fr": "Numéro de port application",
+                    #     },
+                    #     "field": {
+                    #         "number": {
+                    #             "value": _reconfigured_device.app_port,
+                    #             "min": 1,
+                    #             "max": 65535,
+                    #             "steps": 1,
+                    #             "decimals": 0,
+                    #         }
+                    #     },
+                    # },
+                    # {
+                    #     "field": {"text": {"value": _reconfigured_device.password_key}},
+                    #     "id": "password_key",
+                    #     "label": {
+                    #         "en": "Password key (leave blank if unknown)",
+                    #         "fr": "Clé du mot de passe (laisser vide si inconnu)",
+                    #     },
+                    # },
+                    # {
+                    #     "id": "always_on",
+                    #     "label": {
+                    #         "en": "Keep connection alive (faster initialization, but consumes more battery)",
+                    #         "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
+                    #     },
+                    #     "field": {"checkbox": {"value": _reconfigured_device.always_on}},
+                    # },
+                    # {
+                    #     "id": "polling",
+                    #     "label": {
+                    #         "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
+                    #         "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
+                    #     },
+                    #     "field": {"checkbox": {"value": _reconfigured_device.polling}},
+                    # },
                 ],
             )
         case _:
@@ -395,82 +386,90 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
 
     _setup_step = SetupSteps.DEVICE_CHOICE
 
-    input_fields = [
-        {
-            "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
-            "id": "choice",
-            "label": {
-                "en": "Please choose your Sony device. A pairing key may be prompted next.",
-                "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée ensuite",
-            },
-        }
-    ]
-
-    if address:
-        input_fields.extend(
-            [
-                {
-                    "id": "ircc_port",
-                    "label": {
-                        "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
-                        "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
-                    },
-                    "field": {"number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-                {
-                    "id": "dmr_port",
-                    "label": {
-                        "en": "DMR port number",
-                        "fr": "Numéro de port DMR",
-                    },
-                    "field": {"number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-                {
-                    "id": "app_port",
-                    "label": {
-                        "en": "Application port number",
-                        "fr": "Numéro de port application",
-                    },
-                    "field": {"number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
-                },
-            ]
-        )
-
-    input_fields.extend(
-        [
-            {
-                "field": {"text": {"value": ""}},
-                "id": "password_key",
-                "label": {
-                    "en": "Password key (leave blank if unknown)",
-                    "fr": "Clé du mot de passe (laisser vide si inconnu)",
-                },
-            },
-            {
-                "id": "always_on",
-                "label": {
-                    "en": "Keep connection alive (faster initialization, but consumes more battery)",
-                    "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
-                },
-                "field": {"checkbox": {"value": False}},
-            },
-            {
-                "id": "polling",
-                "label": {
-                    "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
-                    "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
-                },
-                "field": {"checkbox": {"value": False}},
-            },
-        ]
-    )
+    # input_fields = [
+    #     {
+    #         "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+    #         "id": "choice",
+    #         "label": {
+    #             "en": "Please choose your Sony device. A pairing key may be prompted next.",
+    #             "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée ensuite",
+    #         },
+    #     }
+    # ]
+    #
+    # if address:
+    #     input_fields.extend(
+    #         [
+    #             {
+    #                 "id": "ircc_port",
+    #                 "label": {
+    #                     "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
+    #                     "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
+    #                 },
+    #                 "field": {"number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+    #             },
+    #             {
+    #                 "id": "dmr_port",
+    #                 "label": {
+    #                     "en": "DMR port number",
+    #                     "fr": "Numéro de port DMR",
+    #                 },
+    #                 "field": {"number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+    #             },
+    #             {
+    #                 "id": "app_port",
+    #                 "label": {
+    #                     "en": "Application port number",
+    #                     "fr": "Numéro de port application",
+    #                 },
+    #                 "field": {"number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+    #             },
+    #         ]
+    #     )
+    #
+    # input_fields.extend(
+    #     [
+    #         {
+    #             "field": {"text": {"value": ""}},
+    #             "id": "password_key",
+    #             "label": {
+    #                 "en": "Password key (leave blank if unknown)",
+    #                 "fr": "Clé du mot de passe (laisser vide si inconnu)",
+    #             },
+    #         },
+    #         {
+    #             "id": "always_on",
+    #             "label": {
+    #                 "en": "Keep connection alive (faster initialization, but consumes more battery)",
+    #                 "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
+    #             },
+    #             "field": {"checkbox": {"value": False}},
+    #         },
+    #         {
+    #             "id": "polling",
+    #             "label": {
+    #                 "en": "Enable polling of media state (stopped/playing) (consumes more battery)",
+    #                 "fr": "Activer la mise à jour du statut de lecture (consomme plus de batterie)",
+    #             },
+    #             "field": {"checkbox": {"value": False}},
+    #         },
+    #     ]
+    # )
 
     return RequestUserInput(
         {
             "en": "Please choose your Sony device",
             "fr": "Sélectionnez votre lecteur Sony",
         },
-        input_fields,
+        [{
+            "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
+            "id": "choice",
+            "label": {
+                "en": "Please choose your Sony device. A pairing key may be prompted next.",
+                "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée ensuite",
+            }
+        }]
+        #input_fields,
     )
 
 
@@ -655,8 +654,8 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     )  # triggers Sony BR instance creation
     config.devices.store()
 
-    _LOG.debug("Supported actions : %s", _sony_device.actions.keys())
-    _LOG.debug("Supported commands : %s", _sony_device.commands.keys())
+    #_LOG.debug("Supported actions : %s", _sony_device.actions.keys())
+    #_LOG.debug("Supported commands : %s", _sony_device.commands.keys())
 
     # AVR device connection will be triggered with subscribe_entities request
 
@@ -668,7 +667,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
 
 async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
     """
-    Process reconfiguration of a registered Android TV device.
+    Process reconfiguration of a registered device.
 
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
