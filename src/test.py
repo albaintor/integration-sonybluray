@@ -3,6 +3,7 @@ import logging
 
 from discover import async_identify_sonybluray_devices
 from sonyapilib.device import AuthenticationResult, SonyDevice
+
 # flake8: noqa
 # pylint: disable=all
 _LOGGER = logging.getLogger(__name__)
