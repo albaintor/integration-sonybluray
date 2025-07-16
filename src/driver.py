@@ -120,7 +120,10 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
         if device:
             _configure_new_device(device, connect=True)
         else:
-            _LOG.error("Failed to subscribe entity %s: no device configuration found", entity_id)
+            _LOG.error(
+                "Failed to subscribe entity %s: no device configuration found",
+                entity_id,
+            )
 
 
 @api.listens_to(ucapi.Events.UNSUBSCRIBE_ENTITIES)
@@ -169,14 +172,16 @@ async def on_device_connected(device_id: str):
 
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
+                entity_id,
+                {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY},
             )
             if (
                 configured_entity.attributes[ucapi.media_player.Attributes.STATE]
                 == ucapi.media_player.States.UNAVAILABLE
             ):
                 api.configured_entities.update_attributes(
-                    entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY}
+                    entity_id,
+                    {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.STANDBY},
                 )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             if configured_entity.attributes[ucapi.remote.Attributes.STATE] == ucapi.remote.States.UNAVAILABLE:
@@ -196,11 +201,13 @@ async def on_device_disconnected(avr_id: str):
 
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+                entity_id,
+                {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE},
             )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
+                entity_id,
+                {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE},
             )
 
     # TODO #20 when multiple devices are supported, the device state logic isn't that simple anymore!
@@ -218,11 +225,13 @@ async def on_avr_connection_error(avr_id: str, message):
 
         if configured_entity.entity_type == ucapi.EntityTypes.MEDIA_PLAYER:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE}
+                entity_id,
+                {ucapi.media_player.Attributes.STATE: ucapi.media_player.States.UNAVAILABLE},
             )
         elif configured_entity.entity_type == ucapi.EntityTypes.REMOTE:
             api.configured_entities.update_attributes(
-                entity_id, {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE}
+                entity_id,
+                {ucapi.remote.Attributes.STATE: ucapi.remote.States.UNAVAILABLE},
             )
 
     # TODO #20 when multiple devices are supported, the device state logic isn't that simple anymore!
@@ -233,7 +242,12 @@ async def handle_avr_address_change(avr_id: str, address: str) -> None:
     """Update device configuration with changed IP address."""
     device = config.devices.get(avr_id)
     if device and device.address != address:
-        _LOG.info("Updating IP address of configured AVR %s: %s -> %s", avr_id, device.address, address)
+        _LOG.info(
+            "Updating IP address of configured AVR %s: %s -> %s",
+            avr_id,
+            device.address,
+            address,
+        )
         device.address = address
         config.devices.update(device)
 
@@ -320,7 +334,10 @@ def _register_available_entities(config_device: config.DeviceInstance, device: S
     """
     # plain and simple for now: only one media_player per AVR device
     # entity = media_player.create_entity(device)
-    entities = [media_player.SonyMediaPlayer(config_device, device), remote.SonyRemote(config_device, device)]
+    entities = [
+        media_player.SonyMediaPlayer(config_device, device),
+        remote.SonyRemote(config_device, device),
+    ]
     for entity in entities:
         if api.available_entities.contains(entity.id):
             api.available_entities.remove(entity.id)

@@ -6,7 +6,6 @@ Setup flow for Sony Bluray integration.
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
 
-
 import asyncio
 import logging
 import os
@@ -37,6 +36,7 @@ class SetupSteps(IntEnum):
     RECONFIGURE = 5
 
 
+# pylint: disable=C0103
 _setup_step = SetupSteps.INIT
 _discovered_devices: list[dict] = []
 _cfg_add_device: bool = False
@@ -71,6 +71,7 @@ _user_input_discovery = RequestUserInput(
 )
 
 
+# pylint: disable=R0911
 async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
     """
     Dispatch driver setup requests to corresponding handlers.
@@ -111,7 +112,9 @@ async def driver_setup_handler(msg: SetupDriver) -> SetupAction:
     return SetupError()
 
 
-async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | SetupError:
+async def handle_driver_setup(
+    _msg: DriverSetupRequest,
+) -> RequestUserInput | SetupError:
     """
     Start driver setup.
 
@@ -189,7 +192,12 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
             {"en": "Configuration mode", "de": "Konfigurations-Modus"},
             [
                 {
-                    "field": {"dropdown": {"value": dropdown_devices[0]["id"], "items": dropdown_devices}},
+                    "field": {
+                        "dropdown": {
+                            "value": dropdown_devices[0]["id"],
+                            "items": dropdown_devices,
+                        }
+                    },
                     "id": "choice",
                     "label": {
                         "en": "Configured devices",
@@ -198,7 +206,12 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
                     },
                 },
                 {
-                    "field": {"dropdown": {"value": dropdown_actions[0]["id"], "items": dropdown_actions}},
+                    "field": {
+                        "dropdown": {
+                            "value": dropdown_actions[0]["id"],
+                            "items": dropdown_actions,
+                        }
+                    },
                     "id": "action",
                     "label": {
                         "en": "Action",
@@ -215,7 +228,9 @@ async def handle_driver_setup(_msg: DriverSetupRequest) -> RequestUserInput | Se
     return _user_input_discovery
 
 
-async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput | SetupComplete | SetupError:
+async def handle_configuration_mode(
+    msg: UserDataResponse,
+) -> RequestUserInput | SetupComplete | SetupError:
     """
     Process user data response in a setup process.
 
@@ -266,7 +281,11 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                     {
                         "field": {"text": {"value": _reconfigured_device.address}},
                         "id": "address",
-                        "label": {"en": "IP address", "de": "IP-Adresse", "fr": "Adresse IP"},
+                        "label": {
+                            "en": "IP address",
+                            "de": "IP-Adresse",
+                            "fr": "Adresse IP",
+                        },
                     },
                     {
                         "id": "ircc_port",
@@ -328,7 +347,8 @@ async def handle_configuration_mode(msg: UserDataResponse) -> RequestUserInput |
                         "id": "always_on",
                         "label": {
                             "en": "Keep connection alive (faster initialization, but consumes more battery)",
-                            "fr": "Conserver la connexion active (lancement plus rapide, mais consomme plus de batterie)",
+                            "fr": "Conserver la connexion active (lancement plus rapide, mais consomme "
+                            "plus de batterie)",
                         },
                         "field": {"checkbox": {"value": _reconfigured_device.always_on}},
                     },
@@ -363,6 +383,7 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     global _setup_step
     global _discovered_devices
 
+    # pylint: disable=W1405
     _discovered_devices = []
 
     dropdown_items = []
@@ -394,8 +415,10 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
             "field": {"dropdown": {"value": dropdown_items[0]["id"], "items": dropdown_items}},
             "id": "choice",
             "label": {
-                "en": "Please choose your Sony device. A pairing key may be prompted next.",
-                "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée ensuite",
+                "en": "Please choose your Sony device. A pairing key may be prompted, on some models you must enable "
+                '"Media Remote Device Registration" before pairing.',
+                "fr": "Sélectionnez votre lecteur Sony. Une clé d'appairage pourra être demandée, sur certains "
+                'modèles il faut activer "Media Remote Device Registration" avant l\'appairage.',
             },
         }
     ]
@@ -409,7 +432,15 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                         "en": f"IRCC port number ({IRCC_PORT} or {DMR_PORT} depending on the model)",
                         "fr": f"Numéro de port IRCC ({IRCC_PORT} ou {DMR_PORT} en fonction du modèle)",
                     },
-                    "field": {"number": {"value": IRCC_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+                    "field": {
+                        "number": {
+                            "value": IRCC_PORT,
+                            "min": 1,
+                            "max": 65535,
+                            "steps": 1,
+                            "decimals": 0,
+                        }
+                    },
                 },
                 {
                     "id": "dmr_port",
@@ -417,7 +448,15 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                         "en": "DMR port number",
                         "fr": "Numéro de port DMR",
                     },
-                    "field": {"number": {"value": DMR_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+                    "field": {
+                        "number": {
+                            "value": DMR_PORT,
+                            "min": 1,
+                            "max": 65535,
+                            "steps": 1,
+                            "decimals": 0,
+                        }
+                    },
                 },
                 {
                     "id": "app_port",
@@ -425,7 +464,15 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
                         "en": "Application port number",
                         "fr": "Numéro de port application",
                     },
-                    "field": {"number": {"value": APP_PORT, "min": 1, "max": 65535, "steps": 1, "decimals": 0}},
+                    "field": {
+                        "number": {
+                            "value": APP_PORT,
+                            "min": 1,
+                            "max": 65535,
+                            "steps": 1,
+                            "decimals": 0,
+                        }
+                    },
                 },
             ]
         )
@@ -468,7 +515,10 @@ async def _handle_discovery(msg: UserDataResponse) -> RequestUserInput | SetupEr
     )
 
 
-async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | SetupComplete | SetupError:
+# pylint: disable=R0915
+async def handle_device_choice(
+    msg: UserDataResponse,
+) -> RequestUserInput | SetupComplete | SetupError:
     """
     Process user data response in a setup process.
 
@@ -477,7 +527,6 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
     """
-    global _discovered_devices
     global _sony_device
     global _always_on
     global _setup_step
@@ -485,6 +534,7 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     global _client_name
     global _polling
 
+    # pylint: disable=W1405
     _host = msg.input_values["choice"]
     _password_key = msg.input_values.get("password_key", None)
     _always_on = msg.input_values.get("always_on") == "true"
@@ -509,7 +559,7 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
                 else:
                     _ircc_port = _dmr_port
 
-    _LOG.debug(f"Chosen Sony Bluray: {_device_name} {_host}. Trying to connect and retrieve device information...")
+    _LOG.debug("Chosen Sony Bluray: %s %s. Trying to connect and retrieve device information...", _device_name, _host)
     try:
         # simple connection check
         _client_name = os.getenv("UC_CLIENT_NAME", socket.gethostname().split(".", 1)[0])
@@ -526,6 +576,7 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
 
         try:
             await _sony_device.init_device()
+        # pylint: disable=W0718
         except Exception:
             pass
         register_result = await _sony_device.register()
@@ -544,14 +595,14 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
                     },
                 ],
             )
-        elif register_result == AuthenticationResult.ERROR:
+        if register_result == AuthenticationResult.ERROR:
             _LOG.error("Cannot connect the device %s", _host)
             return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
 
         identifier = _sony_device.mac
         if not identifier:
             identifier = _host
-
+    # pylint: disable=W0718
     except Exception as ex:
         _LOG.error("Cannot connect to %s: %s", _host, ex)
         return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -562,7 +613,10 @@ async def handle_device_choice(msg: UserDataResponse) -> RequestUserInput | Setu
     unique_id = identifier
 
     if unique_id is None:
-        _LOG.error("Could not get mac address of host %s: required to create a unique device", _host)
+        _LOG.error(
+            "Could not get mac address of host %s: required to create a unique device",
+            _host,
+        )
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     config.devices.add(
@@ -600,15 +654,9 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete if a valid AVR device was chosen.
     """
-    global _discovered_devices
-    global _sony_device
-    global _always_on
-    global _device_name
-    global _client_name
-    global _polling
     pin_code = msg.input_values.get("pin_code", None)
 
-    _LOG.debug(f"Registering device with pin code: {_sony_device.host} {pin_code}...")
+    _LOG.debug("Registering device with pin code: %s %s...", _sony_device.host, pin_code)
     try:
         if not await _sony_device.send_authentication(pin_code):
             _LOG.error("Wrong pin code, cannot connect the device %s", _sony_device.host)
@@ -616,6 +664,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
         identifier = _sony_device.mac
         if not identifier:
             identifier = _sony_device.host
+    # pylint: disable=W0718
     except Exception as ex:
         _LOG.error("Cannot connect to %s: %s", _sony_device.host, ex)
         return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
@@ -626,7 +675,10 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     unique_id = identifier
 
     if unique_id is None:
-        _LOG.error("Could not get mac address of host %s: required to create a unique device", _sony_device.host)
+        _LOG.error(
+            "Could not get mac address of host %s: required to create a unique device",
+            _sony_device.host,
+        )
         return SetupError(error_type=IntegrationSetupError.OTHER)
 
     _LOG.error("Device registered successfully %s (%s)", _sony_device.host, _sony_device.mac)
@@ -660,14 +712,15 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
     return SetupComplete()
 
 
-async def _handle_device_reconfigure(msg: UserDataResponse) -> SetupComplete | SetupError:
+async def _handle_device_reconfigure(
+    msg: UserDataResponse,
+) -> SetupComplete | SetupError:
     """
     Process reconfiguration of a registered Android TV device.
 
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
     """
-    global _reconfigured_device
 
     if _reconfigured_device is None:
         return SetupError()

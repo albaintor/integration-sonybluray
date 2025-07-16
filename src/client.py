@@ -1,8 +1,13 @@
 #!/usr/bin/env python
-# coding: utf-8
+"""
+Client handling of the integration driver.
+
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
 import asyncio
 import logging
 from asyncio import AbstractEventLoop, CancelledError, Lock
+from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
 from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
@@ -39,6 +44,7 @@ def cmd_wrapper(
 ) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
     """Catch command exceptions."""
 
+    # pylint: disable=W0212
     @wraps(func)
     async def wrapper(obj: _SonyBlurayDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
         """Wrap all command methods."""
@@ -47,8 +53,9 @@ def cmd_wrapper(
             if obj._device_config.polling:
                 await obj.start_polling()
             return ucapi.StatusCodes.OK
-        except Exception as exc:
-            # If Kodi is off, we expect calls to fail.
+        # pylint: disable=W0718
+        except Exception as ex:
+            # If device is off, we expect calls to fail.
             if obj.state == States.OFF:
                 log_function = _LOGGER.debug
             else:
@@ -57,9 +64,9 @@ def cmd_wrapper(
                 "Error calling %s on entity %s: %r trying to reconnect and send the command next",
                 func.__name__,
                 obj.id,
-                exc,
+                ex,
             )
-            # Kodi not connected, launch a connect task but
+            # Device not connected, launch a connect task but
             # don't wait more than 5 seconds, then process the command if connected
             # else returns error
             connect_task = obj._event_loop.create_task(obj.connect())
@@ -69,11 +76,11 @@ def cmd_wrapper(
                     await connect_task
             except asyncio.TimeoutError:
                 log_function("Timeout for reconnect, command won't be sent")
-                pass
             else:
                 try:
                     await func(obj, *args, **kwargs)
                     return ucapi.StatusCodes.OK
+                # pylint: disable=W0718
                 except Exception as exc:
                     log_function(
                         "Error calling %s on entity %s: %r trying to reconnect",
@@ -82,15 +89,14 @@ def cmd_wrapper(
                         exc,
                     )
             return ucapi.StatusCodes.BAD_REQUEST
-        except Exception as ex:
-            _LOGGER.error("Unknown error %s", func.__name__)
 
     return wrapper
 
 
-class SonyBlurayDevice(object):
+class SonyBlurayDevice:
+    """Sony client device"""
+
     def __init__(self, device_config: DeviceInstance, timeout=3, refresh_frequency=60):
-        from datetime import timedelta
 
         self._id = device_config.id
         self._name = device_config.name
@@ -107,8 +113,10 @@ class SonyBlurayDevice(object):
         self._update_task = None
         self._update_lock = Lock()
         self._connected = False
+        self._reconnect_retry = 0
 
     async def connect(self):
+        """Connect to the device."""
         if self._sony_device:
             # await self._sony_device.close()
             self._sony_device = None
@@ -137,7 +145,7 @@ class SonyBlurayDevice(object):
             #     self._connected = True
             _LOGGER.debug("Init device")
             await self._sony_device.init_device()
-
+        # pylint: disable=W0718
         except Exception as ex:
             _LOGGER.debug("Sony device connection error, waiting next call %s", ex)
         # except requests.exceptions.RequestException as exc:
@@ -148,6 +156,7 @@ class SonyBlurayDevice(object):
             await self.start_polling()
 
     async def disconnect(self):
+        """Disconnect from the device."""
         if self._sony_device:
             self._sony_device = None
 
@@ -168,6 +177,7 @@ class SonyBlurayDevice(object):
             self._update_task = None
 
     async def _background_update_task(self):
+        """Update data in background."""
         self._reconnect_retry = 0
         while True:
             if not self._device_config.always_on:
@@ -186,6 +196,7 @@ class SonyBlurayDevice(object):
         self._update_task = None
 
     async def update(self, deferred_update=0):
+        """Update data."""
         if deferred_update > 0:
             await asyncio.sleep(deferred_update)
         if self._update_lock.locked():
@@ -217,6 +228,7 @@ class SonyBlurayDevice(object):
             #     self._state = States.PLAYING
             # elif playback_info == "PAUSED_PLAYBACK":
             #     self._state = States.PAUSED
+        # pylint: disable=W0718
         except Exception:
             self._state = States.OFF
 
@@ -235,40 +247,49 @@ class SonyBlurayDevice(object):
 
     @property
     def id(self):
+        """Return the identifier of the device."""
         return self._id
 
     @property
     def state(self) -> States:
+        """Return the device state."""
         return self._state
 
     @property
     def name(self):
+        """Return the name of the device."""
         return self._name
 
     @property
     def has_media_state(self):
+        """Return true if polling is enabled (state available)."""
         if self._device_config.polling:
             return True
         return False
 
     @property
     def media_duration(self):
+        """Return media duration."""
         return self._media_duration
 
     @property
     def media_position(self):
+        """Return media position."""
         return self._media_position
 
     @property
     def is_on(self):
+        """Return True if the device is on."""
         return self.state in [States.PAUSED, States.PLAYING, States.ON]
 
     @cmd_wrapper
     async def send_key(self, key):
-        await self._sony_device._send_command(key)
+        """Send key command."""
+        await self._sony_device.send_command(key)
 
     @cmd_wrapper
     async def toggle(self):
+        """Toggle device power."""
         if not self._device_config.polling:
             if self._sony_device.initialized:
                 power_status = await self._sony_device.get_power_status(timeout=2)
@@ -288,6 +309,7 @@ class SonyBlurayDevice(object):
             await self._sony_device.power(False)
 
     async def turn_on(self) -> ucapi.StatusCodes:
+        """Turn on the device."""
         _LOGGER.debug("Turn on (state %s)", self.state)
         try:
             await self._sony_device.power(True)
@@ -295,12 +317,14 @@ class SonyBlurayDevice(object):
                 self._event_loop.create_task(self.update(10))
                 self._event_loop.create_task(self.update(20))
             return ucapi.StatusCodes.OK
+        # pylint: disable=W0718
         except Exception as ex:
             _LOGGER.debug("Error turn on %s", ex)
             return ucapi.StatusCodes.SERVER_ERROR
 
     @cmd_wrapper
     async def turn_off(self):
+        """Turn off the device."""
         if not self._device_config.polling:
             power_status = await self._sony_device.get_power_status(timeout=2)
             if power_status:
@@ -313,46 +337,55 @@ class SonyBlurayDevice(object):
 
     @cmd_wrapper
     async def channel_up(self):
+        """Next channel."""
         return await self._sony_device.next()
 
     @cmd_wrapper
     async def channel_down(self):
+        """Previous channel."""
         return await self._sony_device.prev()
 
     @cmd_wrapper
     async def play_pause(self):
+        """Toggle play/pause."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         return await self._sony_device.pause()
 
     @cmd_wrapper
     async def play(self):
+        """Play command."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         await self._sony_device.play()
 
     @cmd_wrapper
     async def pause(self):
+        """Pause command."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         await self._sony_device.pause()
 
     @cmd_wrapper
     async def stop(self):
+        """Stop command."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         await self._sony_device.stop()
 
     @cmd_wrapper
     async def eject(self):
+        """Eject command."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         await self._sony_device.eject()
 
     @cmd_wrapper
     async def fast_forward(self):
+        """Fast forward command."""
         await self._sony_device.forward()
 
     @cmd_wrapper
     async def rewind(self):
+        """Rewind command."""
         await self._sony_device.rewind()

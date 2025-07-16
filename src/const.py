@@ -1,3 +1,10 @@
+"""
+Constants
+
+:copyright: (c) 2023 by Unfolded Circle ApS.
+:license: Mozilla Public License Version 2.0, see LICENSE for more details.
+"""
+
 from datetime import timedelta
 
 __version__ = "1.0.0"
@@ -97,63 +104,90 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
         "grid": {"width": 4, "height": 6},
         "items": [
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "POWER", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "POWER", "repeat": 1},
+                },
                 "icon": "uc:power-on",
                 "location": {"x": 0, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "type": "icon",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Display", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Display", "repeat": 1},
+                },
                 "icon": "uc:info",
                 "location": {"x": 1, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "type": "icon",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Audio", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Audio", "repeat": 1},
+                },
                 "icon": "uc:language",
                 "location": {"x": 2, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "type": "icon",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "SubTitle", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "SubTitle", "repeat": 1},
+                },
                 "icon": "uc:cc",
                 "location": {"x": 3, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "type": "icon",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Mode3D", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Mode3D", "repeat": 1},
+                },
                 "text": "3D",
                 "location": {"x": 2, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Stop", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Stop", "repeat": 1},
+                },
                 "icon": "uc:stop",
                 "location": {"x": 0, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "type": "icon",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Eject", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Eject", "repeat": 1},
+                },
                 "text": "Eject",
                 "location": {"x": 1, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "TopMenu", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "TopMenu", "repeat": 1},
+                },
                 "text": "Title",
                 "location": {"x": 0, "y": 2},
                 "size": {"height": 1, "width": 1},
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "PopUpMenu", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "PopUpMenu", "repeat": 1},
+                },
                 "icon": "uc:menu",
                 "location": {"x": 3, "y": 5},
                 "size": {"height": 1, "width": 1},
@@ -167,70 +201,100 @@ SONY_REMOTE_UI_PAGES: [UiPage] = [
         "grid": {"height": 4, "width": 3},
         "items": [
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num1", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num1", "repeat": 1},
+                },
                 "location": {"x": 0, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "text": "1",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num2", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num2", "repeat": 1},
+                },
                 "location": {"x": 1, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "text": "2",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num3", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num3", "repeat": 1},
+                },
                 "location": {"x": 2, "y": 0},
                 "size": {"height": 1, "width": 1},
                 "text": "3",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num4", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num4", "repeat": 1},
+                },
                 "location": {"x": 0, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "text": "4",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num5", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num5", "repeat": 1},
+                },
                 "location": {"x": 1, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "text": "5",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num6", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num6", "repeat": 1},
+                },
                 "location": {"x": 2, "y": 1},
                 "size": {"height": 1, "width": 1},
                 "text": "6",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num7", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num7", "repeat": 1},
+                },
                 "location": {"x": 0, "y": 2},
                 "size": {"height": 1, "width": 1},
                 "text": "7",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num8", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num8", "repeat": 1},
+                },
                 "location": {"x": 1, "y": 2},
                 "size": {"height": 1, "width": 1},
                 "text": "8",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num9", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num9", "repeat": 1},
+                },
                 "location": {"x": 2, "y": 2},
                 "size": {"height": 1, "width": 1},
                 "text": "9",
                 "type": "text",
             },
             {
-                "command": {"cmd_id": "remote.send", "params": {"command": "Num0", "repeat": 1}},
+                "command": {
+                    "cmd_id": "remote.send",
+                    "params": {"command": "Num0", "repeat": 1},
+                },
                 "location": {"x": 1, "y": 3},
                 "size": {"height": 1, "width": 1},
                 "text": "0",

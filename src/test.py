@@ -1,11 +1,10 @@
 import asyncio
 import logging
 
-import sonyapilib
 from discover import async_identify_sonybluray_devices
 from sonyapilib.device import AuthenticationResult, SonyDevice
-from sonyapilib.ssdp import SSDPDiscovery
 
+# pylint: disable=all
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -59,7 +58,7 @@ async def main():
     _sony_device.mac = _device_config.get("mac_address")
     try:
         await _sony_device.init_device()
-    except Exception as ex:
+    except Exception:
         print("Exception")
     register_result = await _sony_device.register()
     if register_result == AuthenticationResult.PIN_NEEDED:

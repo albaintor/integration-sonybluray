@@ -42,7 +42,7 @@ def device_from_entity_id(entity_id: str) -> str | None:
 class DeviceInstance:
     """Orange TV device configuration."""
 
-    # pylint: disable = W0622
+    # pylint: disable = W0622, R0917
     id: str
     name: str
     client_name: str

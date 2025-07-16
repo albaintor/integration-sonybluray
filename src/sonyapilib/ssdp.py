@@ -63,7 +63,15 @@ class SSDPDiscovery:
         # fppp
         host = ("239.255.255.250", 1900)
         message = "\r\n".join(
-            ["M-SEARCH * HTTP/1.1", "HOST: {0}:{1}", 'MAN: "ssdp:discover"', "ST: {st}", "MX: {mx}", "", ""]
+            [
+                "M-SEARCH * HTTP/1.1",
+                "HOST: {0}:{1}",
+                'MAN: "ssdp:discover"',
+                "ST: {st}",
+                "MX: {mx}",
+                "",
+                "",
+            ]
         )
         # using a dict to prevent duplicated entries.
         for _ in range(0, retries):

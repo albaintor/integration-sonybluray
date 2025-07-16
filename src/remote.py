@@ -44,6 +44,7 @@ class SonyRemote(Remote):
         attributes = {
             Attributes.STATE: SONY_REMOTE_STATE_MAPPING.get(device.state),
         }
+        # pylint: disable=R0801
         super().__init__(
             entity_id,
             config_device.name,
@@ -53,13 +54,13 @@ class SonyRemote(Remote):
             ui_pages=SONY_REMOTE_UI_PAGES,
         )
 
-    def getIntParam(self, param: str, params: dict[str, Any], default: int):
+    def get_int_param(self, param: str, params: dict[str, Any], default: int):
+        """Return integer parameter."""
         # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
         value = params.get(param, default)
         if isinstance(value, str) and len(value) > 0:
             return int(float(value))
-        else:
-            return default
+        return default
 
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
         """
@@ -77,30 +78,32 @@ class SonyRemote(Remote):
             _LOG.warning("No Kodi instance for entity: %s", self.id)
             return StatusCodes.SERVICE_UNAVAILABLE
 
-        repeat = self.getIntParam("repeat", params, 1)
+        repeat = self.get_int_param("repeat", params, 1)
         res = StatusCodes.OK
-        for i in range(0, repeat):
+        for _ in range(0, repeat):
             res = await self.handle_command(cmd_id, params)
         return res
 
     async def handle_command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
-        hold = self.getIntParam("hold", params, 0)
-        delay = self.getIntParam("delay", params, 0)
+        """Handle command."""
+        # pylint: disable = R0911
+        self.get_int_param("hold", params, 0)
+        delay = self.get_int_param("delay", params, 0)
         command = params.get("command", "")
 
         if command in KEYS:
             return await self._device.send_key(command)
-        elif command in self.options[Options.SIMPLE_COMMANDS]:
+        if command in self.options[Options.SIMPLE_COMMANDS]:
             return await self._device.send_key(SONY_SIMPLE_COMMANDS[command])
-        elif cmd_id == Commands.ON:
+        if cmd_id == Commands.ON:
             return await self._device.turn_on()
-        elif cmd_id == Commands.OFF:
+        if cmd_id == Commands.OFF:
             return await self._device.turn_off()
-        elif cmd_id == Commands.TOGGLE:
+        if cmd_id == Commands.TOGGLE:
             return await self._device.toggle()
-        elif cmd_id == Commands.SEND_CMD:
+        if cmd_id == Commands.SEND_CMD:
             return await self._device.send_key(command)
-        elif cmd_id == Commands.SEND_CMD_SEQUENCE:
+        if cmd_id == Commands.SEND_CMD_SEQUENCE:
             commands = params.get("sequence", [])  # .split(",")
             res = StatusCodes.OK
             for command in commands:
@@ -114,6 +117,8 @@ class SonyRemote(Remote):
         return res
 
     def _key_update_helper(self, key: str, value: str | None, attributes):
+        """Update given attribute."""
+        # pylint: disable=R0801
         if value is None:
             return attributes
 
@@ -132,6 +137,7 @@ class SonyRemote(Remote):
         :param update: dictionary with attributes.
         :return: filtered entity attributes containing changed attributes only.
         """
+        # pylint: disable=R0801
         attributes = {}
 
         if Attributes.STATE in update:

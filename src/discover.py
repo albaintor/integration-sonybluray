@@ -46,7 +46,10 @@ AV_DMR_TAG = f"{AV_XMLNS}X_StandardDMR"
 AV_IRCC_TAG = f"{AV_XMLNS}X_IRCC_DeviceInfo"
 AV_DMR_TAG2 = "X_StandardDMR"
 
-SUPPORTED_DEVICETYPES = ["urn:schemas-upnp-org:device:Basic:1", "urn:schemas-upnp-org:device:MediaRenderer:1"]
+SUPPORTED_DEVICETYPES = [
+    "urn:schemas-upnp-org:device:Basic:1",
+    "urn:schemas-upnp-org:device:MediaRenderer:1",
+]
 
 SUPPORTED_MANUFACTURERS = ["Sony Corporation"]
 
@@ -190,7 +193,7 @@ def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
 
         _LOGGER.debug("Device %s has manufacturer %s", url, device["manufacturer"])
 
-        if not device["manufacturer"] in SUPPORTED_MANUFACTURERS:
+        if device["manufacturer"] not in SUPPORTED_MANUFACTURERS:
             return None
 
         if root.find(SCPD_DEVICE).find(SCPD_DEVICETYPE).text in SUPPORTED_DEVICETYPES:
