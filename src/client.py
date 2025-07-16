@@ -38,12 +38,13 @@ _P = ParamSpec("_P")
 CONNECTION_RETRIES = 10
 
 
+# pylint: disable=W0212
+# noqa: D202
 def cmd_wrapper(
     func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
 ) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
     """Catch command exceptions."""
 
-    # pylint: disable=W0212
     @wraps(func)
     async def wrapper(obj: _SonyBlurayDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
         """Wrap all command methods."""
