@@ -71,6 +71,7 @@ class DeviceInstance:
         mac_address=None,
         polling=False,
     ):
+        """Create configuration instance."""
         self.id = id
         self.name = name
         self.client_name = client_name

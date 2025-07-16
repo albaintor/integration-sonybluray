@@ -721,7 +721,6 @@ async def _handle_device_reconfigure(
     :param msg: response data from the requested user data
     :return: the setup action on how to continue: SetupComplete after updating configuration
     """
-
     if _reconfigured_device is None:
         return SetupError()
 

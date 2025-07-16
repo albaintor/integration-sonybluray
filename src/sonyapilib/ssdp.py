@@ -1,4 +1,4 @@
-"""SSDP Implementation"""
+"""SSDP Implementation."""
 
 import email
 import logging
@@ -13,7 +13,7 @@ class SSDPResponse:
     """Hold the response of a ssdp request."""
 
     def __init__(self, response):
-        """Init the ssdp response with given data"""
+        """Init the ssdp response with given data."""
         if not response:
             return
 
@@ -30,7 +30,7 @@ class SSDPResponse:
             self.cache = headers["CACHE-CONTROL"].split("=")[1]
 
     def __repr__(self):
-        """Define how string representation looks"""
+        """Define how string representation looks."""
         return "<SSDPResponse({location}, {st}, {usn})>".format(**self.__dict__)
 
 

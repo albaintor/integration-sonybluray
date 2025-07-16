@@ -43,7 +43,6 @@ def cmd_wrapper(
     func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
 ) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
     """Catch command exceptions."""
-
     # pylint: disable=W0212
     @wraps(func)
     async def wrapper(obj: _SonyBlurayDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
@@ -94,10 +93,10 @@ def cmd_wrapper(
 
 
 class SonyBlurayDevice:
-    """Sony client device"""
+    """Sony client device."""
 
     def __init__(self, device_config: DeviceInstance, timeout=3, refresh_frequency=60):
-
+        """Create device instance."""
         self._id = device_config.id
         self._name = device_config.name
         self._hostname = device_config.address

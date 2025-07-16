@@ -1,5 +1,5 @@
 """
-Client for Sony Media Players
+Client for Sony Media Players.
 
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
@@ -32,7 +32,7 @@ WEBAPI_SERVICETYPE = "av:X_ScalarWebAPI_ServiceType"
 
 
 class DeviceState(Enum):
-    """Device state"""
+    """Device state."""
 
     OFF = 0
     STOPPED = 1
@@ -123,7 +123,7 @@ class XmlApiObject:
     """Holds data for a device action or a command."""
 
     def __init__(self, xml_data):
-        """Init xml object with given data"""
+        """Init xml object with given data."""
         self.name = None
         self.mode = None
         self.url = None
@@ -191,7 +191,7 @@ class SonyDevice:
         self._event_loop = asyncio.get_event_loop() or asyncio.get_running_loop()
 
     async def init_device(self):
-        """Update this object with data from the device"""
+        """Update this object with data from the device."""
         if not await self._update_service_urls():
             return
         await self._update_commands()
@@ -527,7 +527,7 @@ class SonyDevice:
                 self.apps[data.name] = data
 
     def _recreate_authentication(self):
-        """Recreate auth authentication"""
+        """Recreate auth authentication."""
         registration_action = self._get_action("register")
         if any([not registration_action, registration_action.mode < 3]):
             return
@@ -545,7 +545,7 @@ class SonyDevice:
 
     def _create_api_json(self, method, params=None):
         # pylint: disable=invalid-name
-        """Create json data which will be send via post for the V4 api"""
+        """Create json data which will be send via post for the V4 api."""
         if not params:
             params = [
                 {"clientid": self.client_id, "nickname": self.nickname},
@@ -634,7 +634,7 @@ class SonyDevice:
             raise ValueError("Failed to read command list from device.")
 
     def _get_action(self, name):
-        """Get the action object for the action with the given name"""
+        """Get the action object for the action with the given name."""
         if name not in self.actions and not self.actions:
             # self.init_device()
             # if name not in self.actions and not self.actions:
@@ -704,7 +704,7 @@ class SonyDevice:
             return AuthenticationResult.ERROR
 
     def _add_headers(self):
-        """Add headers which all devices need"""
+        """Add headers which all devices need."""
         self.headers["X-CERS-DEVICE-ID"] = self.client_id
         self.headers["X-CERS-DEVICE-INFO"] = self.client_id
 
@@ -782,7 +782,7 @@ class SonyDevice:
         return DeviceState.STOPPED
 
     async def get_playing_status(self):
-        """Get the status of playback from the device"""
+        """Get the status of playback from the device."""
         data = """<m:GetTransportInfo xmlns:m="urn:schemas-upnp-org:service:AVTransport:1">
             <InstanceID>0</InstanceID>
             </m:GetTransportInfo>"""
@@ -831,7 +831,7 @@ class SonyDevice:
         return False
 
     async def start_app(self, app_name):
-        """Start an app by name"""
+        """Start an app by name."""
         # sometimes device does not start app if already running one
         await self.home()
 
@@ -1090,7 +1090,7 @@ def iterate_search_data(data, param):
 
 
 def find_in_xml(data, search_params):
-    """Try to find an element in an xml
+    """Try to find an element in an xml.
 
     Take an xml from string or as xml.etree.ElementTree
     and an iterable of strings (and/or tuples in case of findall) to search.
