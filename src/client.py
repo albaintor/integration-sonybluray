@@ -10,8 +10,7 @@ from asyncio import AbstractEventLoop, CancelledError, Lock
 from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
-from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
-                    ParamSpec, TypeVar)
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import ucapi.media_player
 from pyee.asyncio import AsyncIOEventEmitter
@@ -43,6 +42,7 @@ def cmd_wrapper(
     func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
 ) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
     """Catch command exceptions."""
+
     # pylint: disable=W0212
     @wraps(func)
     async def wrapper(obj: _SonyBlurayDeviceT, *args: _P.args, **kwargs: _P.kwargs) -> ucapi.StatusCodes:
