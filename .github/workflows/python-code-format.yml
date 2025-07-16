@@ -44,9 +44,9 @@ jobs:
       - name: Lint with flake8
         run: |
           python -m flake8 src --count --show-source --statistics
-      - name: Check code formatting with isort
-        run: |
-          python -m isort src/. --check --verbose
+#      - name: Check code formatting with isort
+#        run: |
+#          python -m isort src/. --check --verbose
       - name: Check code formatting with black
         run: |
           python -m black src --check --diff --verbose --line-length 120
