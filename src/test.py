@@ -2,8 +2,9 @@ import asyncio
 import logging
 import sys
 
-from discover import async_identify_sonybluray_devices
 from rich import print_json
+
+from discover import async_identify_sonybluray_devices
 from sonyapilib.device import AuthenticationResult, SonyDevice
 
 # flake8: noqa
@@ -13,6 +14,7 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
+
 
 async def discover():
     devices = await async_identify_sonybluray_devices()
@@ -30,8 +32,8 @@ async def main():
     ch.setLevel(logging.INFO)
     # ch.setFormatter(formatter)
     _LOGGER.addHandler(ch)
-    #await discover()
-    #exit(0)
+    # await discover()
+    # exit(0)
     # devices = await async_identify_sonybluray_devices()
     # for device in devices:
     #     _LOGGER.info(device.get("host"))

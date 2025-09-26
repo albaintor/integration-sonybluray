@@ -417,6 +417,7 @@ class SonyDevice:
             await self._parse_action_list()
             _LOGGER.debug("Device registration mode is : %s", self.actions["register"].mode)
             return True
+        # pylint: disable=W0718
         except Exception:
             _LOGGER.debug("Device registration mode is 4")
 

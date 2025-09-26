@@ -9,7 +9,8 @@ import logging
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, Options
+from ucapi.media_player import (Attributes, Commands, DeviceClasses, Features,
+                                Options)
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
