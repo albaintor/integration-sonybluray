@@ -236,6 +236,67 @@ class Devices:
 
         return False
 
+    def export(self) -> str:
+        """
+        Export the configuration file to a string
+
+        :return: JSON formatted string of the current configuration
+        """
+        return json.dumps(self._config, ensure_ascii=False, cls=_EnhancedJSONEncoder)
+
+    def import_config(self, updated_config: str) -> bool:
+        """
+        Import the updated configuration
+        """
+        config_backup = self._config.copy()
+        try:
+            data = json.loads(updated_config)
+            self._config.clear()
+            for item in data:
+                try:
+                    self._config.append(DeviceInstance(**item))
+                except TypeError as ex:
+                    _LOG.warning("Invalid configuration entry will be ignored: %s", ex)
+
+            _LOG.debug("Configuration to import : %s", self._config)
+
+            # Now trigger events add/update/removal of devices based on old / updated list
+            for device in self._config:
+                found = False
+                for old_device in config_backup:
+                    if old_device.id == device.id:
+                        if self._update_handler is not None:
+                            self._update_handler(device)
+                        found = True
+                        break
+                if not found and self._add_handler is not None:
+                    self._add_handler(device)
+            for old_device in config_backup:
+                found = False
+                for device in self._config:
+                    if old_device.id == device.id:
+                        found = True
+                        break
+                if not found and self._remove_handler is not None:
+                    self._remove_handler(old_device)
+
+            with open(self._cfg_file_path, "w+", encoding="utf-8") as f:
+                json.dump(self._config, f, ensure_ascii=False, cls=_EnhancedJSONEncoder)
+            return True
+        # pylint: disable=W0718
+        except Exception as ex:
+            _LOG.error(
+                "Cannot import the updated configuration %s, keeping existing configuration : %s", updated_config, ex
+            )
+            try:
+                # Restore current configuration
+                self._config = config_backup
+                self.store()
+            # pylint: disable=W0718
+            except Exception:
+                pass
+        return False
+
     def load(self) -> bool:
         """
         Load the config into the config global variable.

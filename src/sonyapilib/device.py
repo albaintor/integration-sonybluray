@@ -385,7 +385,7 @@ class SonyDevice:
 
     async def _parse_dmr(self, data) -> bool:
         """Parse DMR xml data.
-        
+
         :return: True if IRCC data is read and actions list is filled in
         """
         lirc_url = urlparse(self.ircc_url)

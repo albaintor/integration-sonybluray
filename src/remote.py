@@ -7,6 +7,7 @@ Media-player entity functions.
 
 import asyncio
 import logging
+from asyncio import shield
 from typing import Any
 
 from ucapi import EntityTypes, Remote, StatusCodes
@@ -16,8 +17,7 @@ from ucapi.remote import States as RemoteStates
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
-from const import (KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES,
-                   SONY_SIMPLE_COMMANDS)
+from const import KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, SONY_SIMPLE_COMMANDS
 
 _LOG = logging.getLogger(__name__)
 
@@ -30,6 +30,18 @@ SONY_REMOTE_STATE_MAPPING = {
     MediaStates.PAUSED: RemoteStates.ON,
     MediaStates.STANDBY: RemoteStates.ON,
 }
+
+
+COMMAND_TIMEOUT = 4.5
+
+
+def get_int_param(param: str, params: dict[str, Any], default: int):
+    """Get parameter in integer format."""
+    # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
+    value = params.get(param, default)
+    if isinstance(value, str) and len(value) > 0:
+        return int(float(value))
+    return value
 
 
 class SonyRemote(Remote):
@@ -54,14 +66,6 @@ class SonyRemote(Remote):
             ui_pages=SONY_REMOTE_UI_PAGES,
         )
 
-    def get_int_param(self, param: str, params: dict[str, Any], default: int):
-        """Return integer parameter."""
-        # TODO bug to be fixed on UC Core : some params are sent as (empty) strings by remote (hold == "")
-        value = params.get(param, default)
-        if isinstance(value, str) and len(value) > 0:
-            return int(float(value))
-        return default
-
     async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
         """
         Media-player entity command handler.
@@ -72,49 +76,68 @@ class SonyRemote(Remote):
         :param params: optional command parameters
         :return: status code of the command request
         """
-        _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params)
-
+        _LOG.info("[%s] Got command request: %s %s", self.id, cmd_id, params)
         if self._device is None:
-            _LOG.warning("No Kodi instance for entity: %s", self.id)
-            return StatusCodes.SERVICE_UNAVAILABLE
-
-        repeat = self.get_int_param("repeat", params, 1)
+            _LOG.warning("[%s] No Sony device instance for this remote entity", self.id)
+            return StatusCodes.NOT_FOUND
         res = StatusCodes.OK
-        for _ in range(0, repeat):
-            res = await self.handle_command(cmd_id, params)
-        return res
 
-    async def handle_command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
-        """Handle command."""
-        # pylint: disable = R0911
-        self.get_int_param("hold", params, 0)
-        delay = self.get_int_param("delay", params, 0)
-        command = params.get("command", "")
-
-        if command in KEYS:
-            return await self._device.send_key(command)
-        if command in self.options[Options.SIMPLE_COMMANDS]:
-            return await self._device.send_key(SONY_SIMPLE_COMMANDS[command])
         if cmd_id == Commands.ON:
             return await self._device.turn_on()
         if cmd_id == Commands.OFF:
             return await self._device.turn_off()
         if cmd_id == Commands.TOGGLE:
             return await self._device.toggle()
-        if cmd_id == Commands.SEND_CMD:
-            return await self._device.send_key(command)
-        if cmd_id == Commands.SEND_CMD_SEQUENCE:
-            commands = params.get("sequence", [])  # .split(",")
-            res = StatusCodes.OK
-            for command in commands:
-                res = await self.handle_command(Commands.SEND_CMD, {"command": command, "params": params})
-                if delay > 0:
-                    await asyncio.sleep(delay)
+        if cmd_id in [Commands.SEND_CMD, Commands.SEND_CMD_SEQUENCE]:
+            # If the duration exceeds the remote timeout, keep it running and return immediately
+            try:
+                async with asyncio.timeout(COMMAND_TIMEOUT):
+                    res = await shield(self.send_commands(cmd_id, params))
+            except asyncio.TimeoutError:
+                _LOG.info("[%s] Command request timeout, keep running: %s %s", self.id, cmd_id, params)
         else:
             return StatusCodes.NOT_IMPLEMENTED
-        if delay > 0 and cmd_id != Commands.SEND_CMD_SEQUENCE:
-            await asyncio.sleep(delay)
         return res
+
+    async def send_commands(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
+        """Handle custom command or commands sequence."""
+        # hold = self.get_int_param("hold", params, 0)
+        delay = get_int_param("delay", params, 0)
+        repeat = get_int_param("repeat", params, 1)
+        command = params.get("command", "")
+        res = StatusCodes.OK
+
+        for _i in range(0, repeat):
+            if cmd_id == Commands.SEND_CMD:
+                result = await self.call_command(command)
+                if result != StatusCodes.OK:
+                    res = result
+                if delay > 0:
+                    await asyncio.sleep(delay / 1000)
+            else:
+                commands = params.get("sequence", [])
+                for command in commands:
+                    result = await self.call_command(command)
+                    if result != StatusCodes.OK:
+                        res = result
+                    if delay > 0:
+                        await asyncio.sleep(delay / 1000)
+        return res
+
+    async def call_command(self, command: str) -> StatusCodes:
+        """Call a single command."""
+        # pylint: disable=R0911
+        if command == Commands.ON:
+            return await self._device.turn_on()
+        if command == Commands.OFF:
+            return await self._device.turn_off()
+        if command == Commands.TOGGLE:
+            return await self._device.toggle()
+        if command in KEYS:
+            return await self._device.send_key(command)
+        if command in self.options[Options.SIMPLE_COMMANDS]:
+            return await self._device.send_key(SONY_SIMPLE_COMMANDS[command])
+        return StatusCodes.NOT_IMPLEMENTED
 
     def _key_update_helper(self, key: str, value: str | None, attributes):
         """Update given attribute."""
