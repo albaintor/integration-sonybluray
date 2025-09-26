@@ -105,8 +105,7 @@ class Devices:
         remove_handler: Callable[[DeviceInstance | None], None],
         update_handler: Callable[[DeviceInstance], None],
     ):
-        """
-        Create a configuration instance for the given configuration path.
+        """Create a configuration instance for the given configuration path.
 
         :param data_path: configuration path for the configuration file and client device certificates.
         """
@@ -135,8 +134,7 @@ class Devices:
         return False
 
     def get_by_id_or_address(self, unique_id: str, address: str) -> DeviceInstance | None:
-        """
-        Get device configuration for a matching id or address.
+        """Get device configuration for a matching id or address.
 
         :return: A copy of the device configuration or None if not found.
         """
@@ -236,15 +234,14 @@ class Devices:
         return False
 
     def export(self) -> str:
-        """Export the configuration file to a string
+        """Export the configuration file to a string.
 
         :return: JSON formatted string of the current configuration
         """
         return json.dumps(self._config, ensure_ascii=False, cls=_EnhancedJSONEncoder)
 
     def import_config(self, updated_config: str) -> bool:
-        """Import the updated configuration
-        """
+        """Import the updated configuration."""
         config_backup = self._config.copy()
         try:
             data = json.loads(updated_config)
