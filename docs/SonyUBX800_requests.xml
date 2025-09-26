@@ -1,0 +1,179 @@
+curl http://xxx:52323/dmr.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:pnpx="http://schemas.microsoft.com/windows/pnpx/2005/11" xmlns:df="http://schemas.microsoft.com/windows/2008/09/devicefoundation" xmlns:av="urn:schemas-sony-com:av">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
+    <friendlyName>UBP-X800</friendlyName>
+    <manufacturer>Sony Corporation</manufacturer>
+    <manufacturerURL>http://www.sony.net/</manufacturerURL>
+    <modelName>UBP-X800</modelName>
+    <modelNumber>BDP-2017</modelNumber>
+    <UDN>uuid:00000000-0000-1010-8000-045d4be46b21</UDN>
+    <dlna:X_DLNADOC xmlns:dlna="urn:schemas-dlna-org:device-1-0">DMR-1.50</dlna:X_DLNADOC>
+    <dlna:X_DLNACAP xmlns:dlna="urn:schemas-dlna-org:device-1-0">playcontainer-0-0</dlna:X_DLNACAP>
+    <iconList>
+      <icon>
+        <mimetype>image/jpeg</mimetype>
+        <width>120</width>
+        <height>120</height>
+        <depth>24</depth>
+        <url>/bdp_cx_device_icon_large.jpg</url>
+      </icon>
+      <icon>
+        <mimetype>image/png</mimetype>
+        <width>120</width>
+        <height>120</height>
+        <depth>24</depth>
+        <url>/bdp_cx_device_icon_large.png</url>
+      </icon>
+      <icon>
+        <mimetype>image/jpeg</mimetype>
+        <width>48</width>
+        <height>48</height>
+        <depth>24</depth>
+        <url>/bdp_cx_device_icon_small.jpg</url>
+      </icon>
+      <icon>
+        <mimetype>image/png</mimetype>
+        <width>48</width>
+        <height>48</height>
+        <depth>24</depth>
+        <url>/bdp_cx_device_icon_small.png</url>
+      </icon>
+    </iconList>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId>
+        <SCPDURL>/RenderingControlBdpSCPD.xml</SCPDURL>
+        <controlURL>/upnp/control/RenderingControl</controlURL>
+        <eventSubURL>/upnp/event/RenderingControl</eventSubURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId>
+        <SCPDURL>/ConnectionManagerSCPD.xml</SCPDURL>
+        <controlURL>/upnp/control/ConnectionManager</controlURL>
+        <eventSubURL>/upnp/event/ConnectionManager</eventSubURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId>
+        <SCPDURL>/AVTransportBdpSCPD.xml</SCPDURL>
+        <controlURL>/upnp/control/AVTransport</controlURL>
+        <eventSubURL>/upnp/event/AVTransport</eventSubURL>
+      </service>
+      <service>
+        <serviceType>urn:schemas-sony-com:service:ScalarWebAPI:1</serviceType>
+        <serviceId>urn:schemas-sony-com:serviceId:ScalarWebAPI</serviceId>
+        <SCPDURL>/ScalarWebApiSCPD.xml</SCPDURL>
+        <controlURL>/upnp/control/ScalarAPI</controlURL>
+        <eventSubURL/>
+      </service>
+    </serviceList>
+    <av:X_StandardDMR>1.1</av:X_StandardDMR>
+    <microsoft:magicPacketWakeSupported xmlns:microsoft="urn:schemas-microsoft-com:WMPNSS-1-0">
+        1
+    </microsoft:magicPacketWakeSupported>
+    <av:X_ScalarWebAPI_DeviceInfo>
+      <av:X_ScalarWebAPI_Version>1.0</av:X_ScalarWebAPI_Version>
+      <av:X_ScalarWebAPI_BaseURL>http://192.168.1.166:10000/sony</av:X_ScalarWebAPI_BaseURL>
+      <av:X_ScalarWebAPI_ServiceList>
+        <av:X_ScalarWebAPI_ServiceType>guide</av:X_ScalarWebAPI_ServiceType>
+        <av:X_ScalarWebAPI_ServiceType>system</av:X_ScalarWebAPI_ServiceType>
+        <av:X_ScalarWebAPI_ServiceType>audio</av:X_ScalarWebAPI_ServiceType>
+        <av:X_ScalarWebAPI_ServiceType>avContent</av:X_ScalarWebAPI_ServiceType>
+      </av:X_ScalarWebAPI_ServiceList>
+    </av:X_ScalarWebAPI_DeviceInfo>
+  </device>
+</root>
+
+curl http://xxx:50001/Ircc.xml
+<root>
+<specVersion>
+<major>1</major>
+<minor>0</minor>
+</specVersion>
+<device>
+<deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+<friendlyName>UBP-X800</friendlyName>
+<manufacturer>Sony Corporation</manufacturer>
+<manufacturerURL>http://www.sony.net/</manufacturerURL>
+<modelDescription/>
+<modelName>Blu-ray Disc Player</modelName>
+<modelURL/>
+<UDN>uuid:XXXX</UDN>
+<iconList>
+<icon>
+<mimetype>image/jpeg</mimetype>
+<width>120</width>
+<height>120</height>
+<depth>24</depth>
+<url>/bdp_cx_device_icon_large.jpg</url>
+</icon>
+<icon>
+<mimetype>image/png</mimetype>
+<width>120</width>
+<height>120</height>
+<depth>24</depth>
+<url>/bdp_cx_device_icon_large.png</url>
+</icon>
+<icon>
+<mimetype>image/jpeg</mimetype>
+<width>48</width>
+<height>48</height>
+<depth>24</depth>
+<url>/bdp_cx_device_icon_small.jpg</url>
+</icon>
+<icon>
+<mimetype>image/png</mimetype>
+<width>48</width>
+<height>48</height>
+<depth>24</depth>
+<url>/bdp_cx_device_icon_small.png</url>
+</icon>
+</iconList>
+<serviceList>
+<service>
+<serviceType>urn:schemas-sony-com:service:IRCC:1</serviceType>
+<serviceId>urn:schemas-sony-com:serviceId:IRCC</serviceId>
+<SCPDURL>/IRCCSCPD.xml</SCPDURL>
+<controlURL>/upnp/control/IRCC</controlURL>
+<eventSubURL/>
+</service>
+</serviceList>
+<presentationURL/>
+<av:X_IRCC_DeviceInfo>
+<av:X_IRCC_Version>1.0</av:X_IRCC_Version>
+<av:X_IRCC_CategoryList>
+<av:X_IRCC_Category>
+</av:X_IRCC_Category>
+</av:X_IRCC_CategoryList>
+</av:X_IRCC_DeviceInfo>
+<av:X_UNR_DeviceInfo>
+<av:X_UNR_Version>1.3</av:X_UNR_Version>
+<av:X_CERS_ActionList_URL>http://xxx:50002/actionList</av:X_CERS_ActionList_URL>
+</av:X_UNR_DeviceInfo>
+<av:X_RDIS_DeviceInfo>
+<av:X_RDIS_Version>1.0</av:X_RDIS_Version>
+<av:X_RDIS_SESSION_CONTROL>false</av:X_RDIS_SESSION_CONTROL>
+<av:X_RDIS_ENTRY_PORT>50004</av:X_RDIS_ENTRY_PORT>
+</av:X_RDIS_DeviceInfo>
+</device>
+</root>
+
+curl http://xxx::50002/actionList
+<actionList>
+<action name="register" mode="3" url="http://192.168.1.166:50002/register"/>
+<action name="getText" url="http://192.168.1.166:50002/getText"/>
+<action name="sendText" url="http://192.168.1.166:50002/sendText"/>
+<action name="getContentInformation" url="http://192.168.1.166:50002/getContentInformation"/>
+<action name="getSystemInformation" url="http://192.168.1.166:50002/getSystemInformation"/>
+<action name="getRemoteCommandList" url="http://192.168.1.166:50002/getRemoteCommandList"/>
+<action name="getStatus" url="http://192.168.1.166:50002/getStatus"/>
+<action name="getHistoryList" url="http://192.168.1.166:50002/getHistoryList"/>
+</actionList>

@@ -165,7 +165,7 @@ class SonyDevice:
         self.ircc_port = ircc_port
 
         # actions are thing like getting status
-        self.actions = {}
+        self.actions: dict[str, XmlApiObject] = {}
         self.headers = {}
         # commands are alike to buttons on the remote
         self.commands = {}
@@ -243,18 +243,21 @@ class SonyDevice:
         """Initialize the device by reading the necessary resources from it."""
         try:
             content = await self._send_http(self.dmr_url, method=HttpMethod.GET, raise_errors=True)
-        except aiohttp.ClientConnectorError:
+        except aiohttp.ClientConnectorError as exc:
+            _LOGGER.error("Failed to connect to get DMR: %s %s", type(exc), exc)
             return False
         except HTTPError as exc:
             _LOGGER.error("Failed to get DMR: %s %s", type(exc), exc)
             return False
 
         try:
+            ircc_parsed = False
             if content:
-                self._parse_dmr(content)
+                ircc_parsed = await self._parse_dmr(content)
             if self.api_version <= 3:
-                await self._parse_ircc()
-                await self._parse_action_list()
+                if ircc_parsed is False:
+                    await self._parse_ircc()
+                    await self._parse_action_list()
                 if self.api_version > 0:
                     await self._parse_system_information()
             else:
@@ -297,6 +300,7 @@ class SonyDevice:
                 self.api_version = action.mode
                 if action.mode == 3:
                     action.url = action.url + "&wolSupport=true"
+                _LOGGER.debug("Registration mode %s : %s", action.mode, action.url)
 
     async def _parse_ircc(self):
         content = await self._send_http(self.ircc_url, method=HttpMethod.GET, raise_errors=True)
@@ -379,7 +383,10 @@ class SonyDevice:
                 if function.attrib["name"] == "WOL":
                     self.mac = function.find("functionItem").attrib["value"]
 
-    def _parse_dmr(self, data):
+    async def _parse_dmr(self, data) -> bool:
+        """Parse DMR xml data.
+        :return: True if IRCC data is read and actions list is filled in
+        """
         lirc_url = urlparse(self.ircc_url)
         xml_data = xml.etree.ElementTree.fromstring(data)
 
@@ -400,9 +407,18 @@ class SonyDevice:
                     f"{lirc_url.scheme}://{lirc_url.netloc.split(':')[0]}:{self.dmr_port}" f"{transport_location}"
                 )
 
-        # this is only true for v4 devices.
+        # this is only true for v4 devices except some v3 checks after.
         if WEBAPI_SERVICETYPE not in data:
-            return
+            return False
+
+        _LOGGER.debug("Device registration mode 3 or 4, extracting further information...")
+        try:
+            await self._parse_ircc()
+            await self._parse_action_list()
+            _LOGGER.debug("Device registration mode is : %s", self.actions["register"].mode)
+            return True
+        except Exception:
+            _LOGGER.debug("Device registration mode is 4")
 
         self.api_version = 4
         device_info_name = f"{URN_SCALAR_WEB_API_DEVICE_INFO}X_ScalarWebAPI_DeviceInfo"
@@ -422,12 +438,14 @@ class SonyDevice:
                 action.url = urljoin(self.base_url, "accessControl")
                 action.mode = 4
                 self.actions["register"] = action
-
+                _LOGGER.debug("Registration mode %s : %s", action.mode, action.url)
                 action = XmlApiObject({})
                 action.url = urljoin(self.base_url, "system")
                 action.value = "getRemoteControllerInfo"
                 self.actions["getRemoteCommandList"] = action
                 self.control_url = urljoin(self.base_url, "IRCC")
+
+        return False
 
     async def _update_commands(self):
         """Update the list of commands."""

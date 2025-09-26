@@ -394,7 +394,7 @@ async def main():
     logging.getLogger("receiver").setLevel(level)
     logging.getLogger("setup_flow").setLevel(level)
     logging.getLogger("sonyapilib.device").setLevel(level)
-    # logging.getLogger("sonyapilib.device").setLevel(level)
+    logging.getLogger("device").setLevel(level)
 
     config.devices = config.Devices(api.config_dir_path, on_device_added, on_device_removed, on_device_updated)
     for device in config.devices.all():

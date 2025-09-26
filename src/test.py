@@ -1,13 +1,18 @@
 import asyncio
 import logging
+import sys
 
 from discover import async_identify_sonybluray_devices
+from rich import print_json
 from sonyapilib.device import AuthenticationResult, SonyDevice
 
 # flake8: noqa
 # pylint: disable=all
 _LOGGER = logging.getLogger(__name__)
-
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
 
 async def discover():
     devices = await async_identify_sonybluray_devices()
@@ -25,8 +30,8 @@ async def main():
     ch.setLevel(logging.INFO)
     # ch.setFormatter(formatter)
     _LOGGER.addHandler(ch)
-    await discover()
-    exit(0)
+    #await discover()
+    #exit(0)
     # devices = await async_identify_sonybluray_devices()
     # for device in devices:
     #     _LOGGER.info(device.get("host"))
@@ -75,4 +80,16 @@ async def main():
 
 
 if __name__ == "__main__":
+    _LOG = logging.getLogger(__name__)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logging.basicConfig(handlers=[ch])
+    logging.getLogger("client").setLevel(logging.DEBUG)
+    logging.getLogger("media_player").setLevel(logging.DEBUG)
+    logging.getLogger("remote").setLevel(logging.DEBUG)
+    logging.getLogger("sonyapilib.device").setLevel(logging.DEBUG)
+    logging.getLogger(__name__).setLevel(logging.DEBUG)
+    _LOOP.run_until_complete(main())
+    _LOOP.run_forever()
     asyncio.run(main())
