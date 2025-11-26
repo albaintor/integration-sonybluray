@@ -12,9 +12,17 @@ import os
 import socket
 from enum import IntEnum
 
-from ucapi import (AbortDriverSetup, DriverSetupRequest, IntegrationSetupError,
-                   RequestUserInput, SetupAction, SetupComplete, SetupDriver,
-                   SetupError, UserDataResponse)
+from ucapi import (
+    AbortDriverSetup,
+    DriverSetupRequest,
+    IntegrationSetupError,
+    RequestUserInput,
+    SetupAction,
+    SetupComplete,
+    SetupDriver,
+    SetupError,
+    UserDataResponse,
+)
 
 import config
 from config import DeviceInstance
