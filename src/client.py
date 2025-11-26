@@ -10,7 +10,8 @@ from asyncio import AbstractEventLoop, CancelledError, Lock
 from datetime import timedelta
 from enum import IntEnum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
+from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
+                    ParamSpec, TypeVar)
 
 import ucapi.media_player
 from aiohttp import ClientOSError
@@ -22,6 +23,7 @@ from sonyapilib.device import AuthenticationResult, DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
 ERROR_OS_WAIT = 0.5
+
 
 class Events(IntEnum):
     """Internal driver events."""

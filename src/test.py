@@ -7,7 +7,7 @@ from typing import Any
 
 from rich import print_json
 
-from client import SonyBlurayDevice, Events
+from client import Events, SonyBlurayDevice
 from config import DeviceInstance
 from discover import async_identify_sonybluray_devices
 from sonyapilib.device import AuthenticationResult, SonyDevice
@@ -20,8 +20,10 @@ if sys.platform == "win32":
 _LOOP = asyncio.new_event_loop()
 asyncio.set_event_loop(_LOOP)
 
+
 async def on_device_update(device_id: str, update: dict[str, Any] | None) -> None:
     print_json(data=update)
+
 
 async def discover():
     devices = await async_identify_sonybluray_devices()
@@ -59,17 +61,14 @@ async def main():
         dmr_port=52323,
         ircc_port=50001,
         mac_address="38-18-4c-31-5a-45",
-        pin_code="4624"
+        pin_code="4624",
     )
-    client = SonyBlurayDevice(
-        device_config=_device_config
-    )
+    client = SonyBlurayDevice(device_config=_device_config)
     client.events.on(Events.UPDATE, on_device_update)
     await client.connect()
     await client.turn_on()
     await client.send_key("Right")
     await asyncio.sleep(100)
-
 
     # _sony_device = SonyDevice(
     #     host=_device_config.get("address"),

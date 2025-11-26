@@ -17,7 +17,8 @@ from ucapi.remote import States as RemoteStates
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
-from const import KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, SONY_SIMPLE_COMMANDS
+from const import (KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES,
+                   SONY_SIMPLE_COMMANDS)
 
 _LOG = logging.getLogger(__name__)
 

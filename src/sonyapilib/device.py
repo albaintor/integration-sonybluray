@@ -648,7 +648,7 @@ class SonyDevice:
 
         if self.commands:
             if name in self.commands:
-                await self._send_req_ircc(self.commands[name].value, raise_errors=True)
+                await self._send_req_ircc(self.commands[name].value)
             else:
                 raise ValueError(f"Unknown command: {name}")
         else:
