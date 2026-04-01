@@ -9,7 +9,7 @@ import dataclasses
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from typing import Callable, Iterator
 
 from ucapi import EntityTypes
@@ -40,50 +40,31 @@ def device_from_entity_id(entity_id: str) -> str | None:
 
 @dataclass
 class DeviceInstance:
-    """Orange TV device configuration."""
+    """Sony Bluray device configuration."""
 
     # pylint: disable = W0622, R0917
     id: str
     name: str
     client_name: str
     address: str
-    always_on: bool
-    password_key: str
-    app_port: int
-    dmr_port: int
-    ircc_port: int
-    mac_address: str
-    pin_code: int
-    polling: bool
+    always_on: bool = field(default=False)
+    password_key: str | None = None
+    app_port: int = field(default=APP_PORT)
+    dmr_port: int = field(default=DMR_PORT)
+    ircc_port: int = field(default=IRCC_PORT)
+    mac_address: str | None = field(default=None)
+    pin_code: int | None = field(default=None)
+    polling: bool = field(default=False)
 
-    def __init__(
-        self,
-        id,
-        name,
-        address,
-        pin_code,
-        client_name,
-        always_on=False,
-        app_port=APP_PORT,
-        dmr_port=DMR_PORT,
-        ircc_port=IRCC_PORT,
-        password_key=None,
-        mac_address=None,
-        polling=False,
-    ):
-        """Create configuration instance."""
-        self.id = id
-        self.name = name
-        self.client_name = client_name
-        self.address = address
-        self.always_on = always_on
-        self.password_key = password_key
-        self.app_port = app_port
-        self.dmr_port = dmr_port
-        self.ircc_port = ircc_port
-        self.mac_address = mac_address
-        self.pin_code = pin_code
-        self.polling = polling
+    def __post_init__(self):
+        """Apply default values on missing fields."""
+        for attribute in fields(self):
+            # If there is a default and the value of the field is none we can assign a value
+            if (
+                not isinstance(attribute.default, dataclasses.MISSING.__class__)
+                and getattr(self, attribute.name) is None
+            ):
+                setattr(self, attribute.name, attribute.default)
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):
@@ -167,17 +148,8 @@ class Devices:
         """Update a configured Sony device and persist configuration."""
         for item in self._config:
             if item.id == device_instance.id:
-                item.address = device_instance.address
-                item.name = device_instance.name
-                item.always_on = device_instance.always_on
-                item.password_key = device_instance.password_key
-                item.app_port = device_instance.app_port
-                item.dmr_port = device_instance.dmr_port
-                item.ircc_port = device_instance.ircc_port
-                item.mac_address = device_instance.mac_address
-                item.pin_code = device_instance.pin_code
-                item.client_name = device_instance.client_name
-                item.polling = device_instance.polling
+                for f in fields(device_instance):
+                    setattr(item, f.name, getattr(device_instance, f.name))
                 return self.store()
         return False
 
@@ -313,4 +285,5 @@ class Devices:
         return False
 
 
+# pylint: disable=C0103
 devices: Devices | None = None

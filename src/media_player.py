@@ -9,7 +9,8 @@ import logging
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, Options
+from ucapi.media_player import (Attributes, Commands, DeviceClasses, Features,
+                                Options)
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
@@ -66,15 +67,27 @@ class SonyMediaPlayer(MediaPlayer):
         )
 
     # pylint: disable=R0801,R0911
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
+    async def command(
+        self,
+        cmd_id: str,
+        params: dict[str, Any] | None = None,
+        *,
+        websocket: Any,
+    ) -> StatusCodes:
         """
-        Media-player entity command handler.
+        Execute entity command with the installed command handler.
 
-        Called by the integration-API if a command is sent to a configured media-player entity.
+        Backward compatible:
+        - Existing handlers usually accept (entity, cmd_id, params)
+        - New handlers may optionally accept websocket as kw-only / kwarg
 
-        :param cmd_id: command
+        Returns NOT_IMPLEMENTED if no command handler is installed.
+
+        :param cmd_id: the command
         :param params: optional command parameters
-        :return: status code of the command request
+        :param websocket: optional websocket connection. Allows for directed event
+                          callbacks instead of broadcasts.
+        :return: command status code to acknowledge to UCR2
         """
         _LOG.info("Got %s command request: %s %s", self.id, cmd_id, params)
 

@@ -17,7 +17,8 @@ from ucapi.remote import States as RemoteStates
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
-from const import KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES, SONY_SIMPLE_COMMANDS
+from const import (KEYS, SONY_REMOTE_BUTTONS_MAPPING, SONY_REMOTE_UI_PAGES,
+                   SONY_SIMPLE_COMMANDS)
 
 _LOG = logging.getLogger(__name__)
 
@@ -66,15 +67,27 @@ class SonyRemote(Remote):
             ui_pages=SONY_REMOTE_UI_PAGES,
         )
 
-    async def command(self, cmd_id: str, params: dict[str, Any] | None = None) -> StatusCodes:
+    async def command(
+        self,
+        cmd_id: str,
+        params: dict[str, Any] | None = None,
+        *,
+        websocket: Any,
+    ) -> StatusCodes:
         """
-        Media-player entity command handler.
+        Execute entity command with the installed command handler.
 
-        Called by the integration-API if a command is sent to a configured media-player entity.
+        Backward compatible:
+        - Existing handlers usually accept (entity, cmd_id, params)
+        - New handlers may optionally accept websocket as kw-only / kwarg
 
-        :param cmd_id: command
+        Returns NOT_IMPLEMENTED if no command handler is installed.
+
+        :param cmd_id: the command
         :param params: optional command parameters
-        :return: status code of the command request
+        :param websocket: optional websocket connection. Allows for directed event
+                          callbacks instead of broadcasts.
+        :return: command status code to acknowledge to UCR2
         """
         _LOG.info("[%s] Got command request: %s %s", self.id, cmd_id, params)
         if self._device is None:

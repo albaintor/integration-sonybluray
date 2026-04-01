@@ -1,6 +1,6 @@
-ucapi==0.3.1
-aiohttp~=3.12.13
-pyee~=13.0.0
+ucapi~=0.5.2
+aiohttp~=3.13.5
+pyee~=13.0.1
 httpx~=0.28.1
 defusedxml~=0.7.1
-jsonpickle~=3.4.2
+jsonpickle~=4.1.1
