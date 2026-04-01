@@ -14,6 +14,7 @@ from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
                     ParamSpec, TypeVar)
 
 import ucapi.media_player
+from aiohttp import ClientOSError
 from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, States
 
@@ -21,6 +22,7 @@ from config import DeviceInstance
 from sonyapilib.device import AuthenticationResult, DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
+ERROR_OS_WAIT = 0.5
 
 
 class Events(IntEnum):
@@ -145,7 +147,10 @@ class SonyBlurayDevice:
             # if response:
             #     self._connected = True
             _LOGGER.debug("Init device")
-            await self._sony_device.init_device()
+            if not await self._sony_device.init_device():
+                _LOGGER.debug("Sony device initialization error, retry in case where network was not ready")
+                await asyncio.sleep(ERROR_OS_WAIT)
+                await self._sony_device.init_device()
         # pylint: disable=W0718
         except Exception as ex:
             _LOGGER.debug("Sony device connection error, waiting next call %s", ex)
@@ -286,7 +291,12 @@ class SonyBlurayDevice:
     @cmd_wrapper
     async def send_key(self, key):
         """Send key command."""
-        await self._sony_device.send_command(key)
+        try:
+            await self._sony_device.send_command(key)
+        except ClientOSError:
+            _LOGGER.warning("[%s] OS error, waiting %ss", self._device_config.address, ERROR_OS_WAIT)
+            await asyncio.sleep(ERROR_OS_WAIT)
+            await self._sony_device.send_command(key)
 
     @cmd_wrapper
     async def toggle(self):
@@ -309,11 +319,16 @@ class SonyBlurayDevice:
         else:
             await self._sony_device.power(False)
 
+    async def _deferred_wakeonlan(self, delay: float):
+        await asyncio.sleep(delay)
+        self._sony_device.wakeonlan()
+
     async def turn_on(self) -> ucapi.StatusCodes:
         """Turn on the device."""
         _LOGGER.debug("Turn on (state %s)", self.state)
         try:
             await self._sony_device.power(True)
+            asyncio.create_task(self._deferred_wakeonlan(ERROR_OS_WAIT))
             if not self._device_config.polling:
                 self._event_loop.create_task(self.update(10))
                 self._event_loop.create_task(self.update(20))

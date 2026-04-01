@@ -45,6 +45,8 @@ For more information on available commands see [this page](https://next.openhab.
 
 First you have to enable the home network access from Settings : `Auto Home Network Access Permission` to `On`
 Also, enable `Remote Start` to `On`
+Some users reported that no prompt were displayed during setup : in that case try to leave `Home Network Access Control` to `Off` to prompt the registration code
+
 
 ## Usage
 

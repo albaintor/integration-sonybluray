@@ -190,10 +190,10 @@ class SonyDevice:
         self._add_headers()
         self._event_loop = asyncio.get_event_loop() or asyncio.get_running_loop()
 
-    async def init_device(self):
+    async def init_device(self) -> bool:
         """Update this object with data from the device."""
         if not await self._update_service_urls():
-            return
+            return False
         await self._update_commands()
         self._add_headers()
 
@@ -207,6 +207,7 @@ class SonyDevice:
                     "Cannot retrieve apps list, the device probably don't support it %s",
                     ex,
                 )
+        return True
 
     @property
     def initialized(self) -> bool:

@@ -33,7 +33,7 @@ asyncio.set_event_loop(_LOOP)
 api = ucapi.IntegrationAPI(_LOOP)
 # Map of device_id -> Orange instance
 _configured_devices: dict[str, SonyBlurayDevice] = {}
-_R2_IN_STANDBY = False
+_remote_in_standby = False  # pylint: disable=C0103
 
 
 @api.listens_to(ucapi.Events.CONNECT)
@@ -63,8 +63,8 @@ async def on_r2_enter_standby() -> None:
 
     Disconnect every OrangeTV instances.
     """
-    global _R2_IN_STANDBY
-    _R2_IN_STANDBY = True
+    global _remote_in_standby
+    _remote_in_standby = True
     _LOG.debug("Enter standby event: disconnecting device(s)")
     for device in _configured_devices.values():
         # start background task
@@ -78,9 +78,9 @@ async def on_r2_exit_standby() -> None:
 
     Connect all OrangeTV instances.
     """
-    global _R2_IN_STANDBY
+    global _remote_in_standby
 
-    _R2_IN_STANDBY = False
+    _remote_in_standby = False
     _LOG.debug("Exit standby event: connecting device(s)")
 
     for device in _configured_devices.values():
@@ -96,9 +96,9 @@ async def on_subscribe_entities(entity_ids: list[str]) -> None:
 
     :param entity_ids: entity identifiers.
     """
-    global _R2_IN_STANDBY
+    global _remote_in_standby
 
-    _R2_IN_STANDBY = False
+    _remote_in_standby = False
     _LOG.debug("Subscribe entities event: %s", entity_ids)
     for entity_id in entity_ids:
         entity = api.configured_entities.get(entity_id)
