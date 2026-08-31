@@ -4,14 +4,14 @@ Client handling of the integration driver.
 
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
+
 import asyncio
 import logging
 from asyncio import AbstractEventLoop, CancelledError, Lock
 from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 from functools import wraps
-from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
-                    ParamSpec, TypeVar)
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import ucapi.media_player
 from aiohttp import ClientOSError
@@ -19,8 +19,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, States
 
 from config import DeviceInstance
-from sonyapilib.device import (AuthenticationResult, DeviceCapabilities,
-                               DeviceState, SonyDevice)
+from sonyapilib.device import AuthenticationResult, DeviceCapabilities, DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
 ERROR_OS_WAIT = 0.5
@@ -45,8 +44,8 @@ CONNECTION_RETRIES = 10
 # pylint: disable=W0212
 # noqa: D202
 def cmd_wrapper(
-    func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
-) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
+    func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[Any]],
+) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes]]:
     """Catch command exceptions."""
 
     @wraps(func)
@@ -135,7 +134,7 @@ class SonyBlurayDevice:
 
         if self._device_config.password_key == "":
             self._device_config.password_key = None
-        self._sony_device = SonyDevice(
+        sony_device = SonyDevice(
             host=self._device_config.address,
             app_port=self._device_config.app_port,
             ircc_port=self._device_config.ircc_port,
@@ -143,7 +142,7 @@ class SonyBlurayDevice:
             psk=self._device_config.password_key,
             nickname=self._device_config.client_name,
         )
-        sony_device = self._sony_device
+        self._sony_device = sony_device
         sony_device.pin = self._device_config.pin_code
         sony_device.mac = self._device_config.mac_address
         try:
@@ -232,7 +231,8 @@ class SonyBlurayDevice:
                 if self.state in [States.OFF, States.UNKNOWN]:
                     await self.connect()
 
-                power_status = await self._sony_device.get_power_status()
+                sony_device = self._require_device()
+                power_status = await sony_device.get_power_status()
                 if not power_status:
                     self._state = States.OFF
                     self._media_position = 0
@@ -240,7 +240,7 @@ class SonyBlurayDevice:
                     self._media_source = None
                     self._media_title = None
                 else:
-                    playback_info = await self._sony_device.get_playback_info()
+                    playback_info = await sony_device.get_playback_info()
                     if playback_info.state == DeviceState.OFF:
                         self._state = States.OFF
                     elif playback_info.state == DeviceState.PLAYING:
@@ -313,6 +313,12 @@ class SonyBlurayDevice:
         """Return configured or detected network capabilities."""
         return self._capabilities
 
+    def _require_device(self) -> SonyDevice:
+        """Return the active protocol client or fail with an explicit connection error."""
+        if self._sony_device is None:
+            raise ConnectionError("Sony device is not connected")
+        return self._sony_device
+
     @property
     def media_duration(self):
         """Return media duration."""
@@ -361,14 +367,15 @@ class SonyBlurayDevice:
 
     async def _deferred_wakeonlan(self, delay: float):
         await asyncio.sleep(delay)
-        self._sony_device.wakeonlan()
+        self._require_device().wakeonlan()
 
     async def turn_on(self) -> ucapi.StatusCodes:
         """Turn on the device."""
         _LOGGER.debug("Turn on (state %s)", self.state)
         try:
-            await self._sony_device.power(True)
-            if self._sony_device.mac:
+            sony_device = self._require_device()
+            await sony_device.power(True)
+            if sony_device.mac:
                 asyncio.create_task(self._deferred_wakeonlan(ERROR_OS_WAIT))
             if not self._device_config.polling:
                 self._event_loop.create_task(self.update(10))

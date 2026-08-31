@@ -267,6 +267,7 @@ class SonyDevice:
         self.api_version = 0
         self.capabilities = DeviceCapabilities()
         self._initialized = False
+        self._registered = False
 
         self.dmr_url = f"http://{self.host}:{self.dmr_port}/dmr.xml"
         self.app_url = f"http://{self.host}:{self.app_port}"
@@ -286,12 +287,22 @@ class SonyDevice:
         """Update this object with data from the device."""
         if not await self._update_service_urls():
             return False
-        if self.capabilities.ircc:
-            await self._update_commands()
-        self._add_headers()
 
-        if self.pin and "register" in self.actions:
+        self._add_headers()
+        registration_action = self.actions.get("register")
+        registration_mode = registration_action.mode if registration_action is not None else None
+        requires_registration = registration_mode is not None and registration_mode >= 3
+
+        if self.pin and registration_action is not None:
             self._recreate_authentication()
+
+        # Mode 3/4 command lists are protected. During initial setup we only
+        # discover capabilities and the registration action; commands are read
+        # after registration/PIN authentication has succeeded.
+        if self.capabilities.ircc and (not requires_registration or self.pin or self._registered):
+            await self._update_commands()
+
+        if self.pin and registration_action is not None:
             try:
                 await self._update_applist()
             # pylint: disable=W0718
@@ -667,7 +678,7 @@ class SonyDevice:
             response = await self._send_http(
                 url,
                 method=HttpMethod.GET,
-                cookies={"auth", self.cookies.get("auth", None)},
+                cookies=self._auth_cookies(),
             )
 
         if response:
@@ -715,6 +726,13 @@ class SonyDevice:
 
         return {"method": method, "params": params, "id": 1, "version": "1.0"}
 
+    def _auth_cookies(self) -> dict:
+        """Return authentication cookies in the mapping format expected by aiohttp."""
+        if self.cookies is None:
+            return {}
+        auth_cookie = self.cookies.get("auth")
+        return {"auth": auth_cookie} if auth_cookie is not None else {}
+
     async def _send_http(self, url, method, **kwargs) -> str | None:
         # pylint: disable=too-many-arguments
         """Send request command via HTTP json to Sony Bravia."""
@@ -734,10 +752,9 @@ class SonyDevice:
             return None
 
         try:
-            cookies = {} if self.cookies is None else {"auth": self.cookies.get("auth", None)}
             async with aiohttp.ClientSession(
                 timeout=ClientTimeout(sock_read=60, sock_connect=timeout, connect=timeout, total=60),
-                cookies=cookies,
+                cookies=self._auth_cookies(),
             ) as session:
                 response = await getattr(session, method)(url, **params)
                 response.raise_for_status()
@@ -768,11 +785,7 @@ class SonyDevice:
         parameters = ["<InstanceID>0</InstanceID>"]
         for name, value in (arguments or {}).items():
             parameters.append(f"<{name}>{value}</{name}>")
-        data = (
-            f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">'
-            f"{''.join(parameters)}"
-            f"</m:{action_name}>"
-        )
+        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' f"{''.join(parameters)}" f"</m:{action_name}>"
         action = f"{AVTRANSPORT_SERVICE}#{action_name}"
         await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
 
@@ -909,6 +922,7 @@ class SonyDevice:
             raise ValueError(f"Registration mode {registration_action.mode} is not supported")
 
         if registration_result is AuthenticationResult.SUCCESS:
+            self._registered = True
             await self.init_device()
 
         return registration_result
@@ -1075,11 +1089,7 @@ class SonyDevice:
 
     async def _get_avtransport_action(self, action_name: str) -> str | None:
         """Execute a read-only AVTransport action for instance zero."""
-        data = (
-            f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">'
-            "<InstanceID>0</InstanceID>"
-            f"</m:{action_name}>"
-        )
+        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' "<InstanceID>0</InstanceID>" f"</m:{action_name}>"
         action = f"{AVTRANSPORT_SERVICE}#{action_name}"
         return await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
 
@@ -1170,7 +1180,7 @@ class SonyDevice:
             await self._send_http(url, HttpMethod.POST, data=data)
         else:
             url = f"http://{self.host}/DIAL/apps/{self.apps[app_name].id}"
-            await self._send_http(url, HttpMethod.POST, cookies={"auth", self.cookies.get("auth")})
+            await self._send_http(url, HttpMethod.POST, cookies=self._auth_cookies())
 
     async def power(self, power_on, broadcast="255.255.255.255"):
         """Powers the device on or shuts it off."""
