@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from media_player import features_for  # noqa: E402
 from sonyapilib.device import DeviceCapabilities, DeviceState, SonyDevice, XmlApiObject  # noqa: E402
+from ucapi.media_player import Features  # noqa: E402
 
 
 class DeviceCapabilityTests(unittest.TestCase):
@@ -18,6 +20,27 @@ class DeviceCapabilityTests(unittest.TestCase):
         restored = DeviceCapabilities.from_protocols(capabilities.protocols)
         self.assertEqual(restored, capabilities)
         self.assertEqual(restored.backend, "ircc_cers")
+
+    def test_mixed_ircc_dlna_does_not_advertise_renderer_timing_or_seek(self):
+        capabilities = DeviceCapabilities(ircc=True, cers=True, dlna=True, wol=True)
+        features = features_for(capabilities)
+        self.assertFalse(capabilities.primary_dlna_transport)
+        self.assertFalse(capabilities.media_timing)
+        self.assertNotIn(Features.SEEK, features)
+        self.assertNotIn(Features.MEDIA_POSITION, features)
+        self.assertNotIn(Features.MEDIA_DURATION, features)
+        self.assertIn(Features.PLAY_PAUSE, features)
+        self.assertIn(Features.MEDIA_TITLE, features)
+
+    def test_dlna_only_advertises_renderer_timing_and_seek(self):
+        capabilities = DeviceCapabilities(dlna=True)
+        features = features_for(capabilities)
+        self.assertTrue(capabilities.primary_dlna_transport)
+        self.assertTrue(capabilities.media_timing)
+        self.assertIn(Features.SEEK, features)
+        self.assertIn(Features.MEDIA_POSITION, features)
+        self.assertIn(Features.MEDIA_DURATION, features)
+        self.assertIn(Features.PLAY_PAUSE, features)
 
     def test_parse_cers_playback_info(self):
         response = """<response><status name="viewing">

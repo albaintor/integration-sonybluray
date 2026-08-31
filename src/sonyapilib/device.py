@@ -97,6 +97,16 @@ class DeviceCapabilities:
         return self.cers or self.dlna
 
     @property
+    def primary_dlna_transport(self) -> bool:
+        """Return whether DLNA AVTransport is the primary playback transport."""
+        return self.dlna and not self.ircc
+
+    @property
+    def media_timing(self) -> bool:
+        """Return whether static media position/duration features are reliable."""
+        return self.primary_dlna_transport
+
+    @property
     def backend(self) -> str:
         """Return the primary control backend selected for this device."""
         if self.ircc:

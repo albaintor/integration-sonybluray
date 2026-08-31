@@ -35,9 +35,9 @@ def features_for(capabilities: DeviceCapabilities) -> list[Features]:
                 Features.NEXT,
             ]
         )
-    if capabilities.dlna:
+    if capabilities.primary_dlna_transport:
         features.append(Features.SEEK)
-    if capabilities.media_state:
+    if capabilities.media_timing:
         features.extend([Features.MEDIA_DURATION, Features.MEDIA_POSITION])
     if capabilities.cers:
         features.append(Features.MEDIA_TITLE)
