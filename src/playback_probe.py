@@ -7,6 +7,7 @@ import logging
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
+from xml.etree import ElementTree
 
 from sonyapilib.device import HttpMethod, PlaybackInfo, SonyDevice
 
@@ -68,6 +69,47 @@ def print_info(label: str, info: PlaybackInfo | None) -> None:
         f"duration={format_seconds(info.duration):>8} "
         f"source={info.source or '-'} title={info.title or '-'} speed={info.speed}"
     )
+
+
+def local_name(tag: str) -> str:
+    """Return an XML local name without a namespace prefix."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def legacy_viewing_status(xml_data: str | None) -> bool:
+    """Reproduce the historical X700 playback heuristic as permissively as possible."""
+    if not xml_data:
+        return False
+    try:
+        root = ElementTree.fromstring(xml_data)
+    except ElementTree.ParseError:
+        return False
+    return any(element.attrib.get("name", "").casefold() == "viewing" for element in root.iter())
+
+
+def summarize_xml(xml_data: str | None, limit: int = 20) -> list[str]:
+    """Return compact XML attributes/text useful for identifying Sony firmware fields."""
+    if not xml_data:
+        return []
+    try:
+        root = ElementTree.fromstring(xml_data)
+    except ElementTree.ParseError as exc:
+        return [f"invalid XML: {exc}"]
+
+    records: list[str] = []
+    for element in root.iter():
+        attrs = ", ".join(f"{name}={value!r}" for name, value in element.attrib.items())
+        text = (element.text or "").strip()
+        if not attrs and not text:
+            continue
+        details = attrs
+        if text:
+            details = f"{details}, text={text!r}" if details else f"text={text!r}"
+        records.append(f"{local_name(element.tag)}({details})")
+        if len(records) >= limit:
+            records.append("...")
+            break
+    return records
 
 
 async def read_cers_status(device: SonyDevice) -> tuple[str | None, PlaybackInfo | None, str | None]:
@@ -139,10 +181,14 @@ async def run_probe(args: argparse.Namespace) -> None:
     content_response, content_error = await read_cers_content(device)
     if content_error:
         print(f"getContentInformation: {content_error}")
-    elif args.raw and content_response:
-        print("--- RAW getContentInformation ---")
-        print(content_response)
-        print("--- END RAW getContentInformation ---")
+    elif content_response:
+        print("getContentInformation fields:")
+        for record in summarize_xml(content_response):
+            print(f"  {record}")
+        if args.raw:
+            print("--- RAW getContentInformation ---")
+            print(content_response)
+            print("--- END RAW getContentInformation ---")
     print()
 
     previous_position: int | None = None
@@ -160,8 +206,15 @@ async def run_probe(args: argparse.Namespace) -> None:
 
         print(f"Sample {sample}/{max(1, args.samples)} @ {timestamp}")
         print_info("CERS", cers_info)
+        print(f"  {'LEGACY':<10} viewing={legacy_viewing_status(cers_raw)}")
         print_info("DLNA", dlna_info)
         print_info("NORMALIZED", normalized)
+
+        cers_fields = summarize_xml(cers_raw)
+        if cers_fields:
+            print("  CERS XML fields:")
+            for record in cers_fields:
+                print(f"    {record}")
 
         if cers_error:
             print(f"  CERS error: {cers_error}")
@@ -191,10 +244,10 @@ async def run_probe(args: argparse.Namespace) -> None:
             await asyncio.sleep(max(0.0, args.interval))
 
     print("Interpretation:")
-    print("- CERS position/duration present but NORMALIZED missing: parser mapping needs adjustment.")
-    print("- DLNA position/duration present only: AVTransport can provide timing for the current media.")
-    print("- Both sources show '-': the player/firmware is not exposing timing for the current playback mode.")
-    print("- Run with --raw to inspect Sony field names before changing the parser.")
+    print("- LEGACY viewing=True with CERS STOPPED: the CERS parser has a state-detection regression.")
+    print("- CERS position/duration fields present but NORMALIZED missing: parser mapping needs adjustment.")
+    print("- DLNA STOPPED with 0:00:00 timing is not useful for physical Blu-ray playback.")
+    print("- No timing fields in CERS/content XML means this firmware does not expose Blu-ray timing through these APIs.")
 
 
 async def main() -> None:
