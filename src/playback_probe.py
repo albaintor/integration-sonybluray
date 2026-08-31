@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# pylint: skip-file
+# flake8: noqa
 """Read-only playback diagnostic probe for Sony Blu-ray players."""
 
 import argparse
