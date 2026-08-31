@@ -192,13 +192,6 @@ if marker not in text:
     raise SystemExit("run_probe marker not found")
 text = text.replace(marker, insert + marker)
 
-text = text.replace(
-    '            print(f"    SCPD:    {service.scpd_url}")\n            print(f"    actions: {', '.join(service.actions) or 'SCPD unavailable'}")\n',
-    '            print(f"    SCPD:    {service.scpd_url}")\n'
-    '            print(f"    events:  {service.event_sub_url or \'not advertised\'}")\n'
-    '            print(f"    actions: {', '.join(service.actions) or 'SCPD unavailable'}")\n',
-)
-
 anchor = "    content_response, content_error = await read_cers_content(device)\n"
 event_setup = r'''    event_monitor: UpnpEventMonitor | None = None
     if services and not args.no_events:
