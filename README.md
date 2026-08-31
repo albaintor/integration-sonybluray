@@ -1,4 +1,4 @@
-# Sony Bluray integration for Remote Two
+# Sony Bluray integration for Remote Two / 3
 
 Using [uc-integration-api](https://github.com/aitatoi/integration-python-library)
 
@@ -184,7 +184,8 @@ The integration has been tested on UHD or Bluray Discs Players.
 The underlying library also supports other device types (TVs, receivers...) : working has to be confirmed for those.
 
 ### Ultra HD Blu-ray Disc™ Player
-UBP-X700, UBP-X800, UBP-X800M2
+UBP-X700, UBP-X800
+Note : UBP-X800M2 is not supported
 
 ### Blu-ray Disc™/DVD Player
 UHP-H1, BDP-S6700, BDP-S3700, BDP-S6500, BDP-S5500, BDP-S4500, BDP-S3500, BDP-S7200, BDP-S6200, BDP-S5200, BDP-S4200, BDP-S3200, BDP-BX620, BDP-BX520, BDP-BX320, BDP-S5100, BDP-S4100, BDP-S3100, BDP-BX510, BDP-BX310, BDP-A6000, BDP-S790, BDP-S590, BDP-S490, BDP-S390, BDP-BX59, BDP-BX39, BDP-S780, BDP-S580, BDP-S480, BDP-S380, BDP-BX58, BDP-BX38, BDP-S1700ES, BDP-S770, BDP-S570, BDP-S470, BDP-S370, BDP-BX57, BDP-BX37
