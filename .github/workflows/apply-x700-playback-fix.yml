@@ -1,0 +1,49 @@
+name: Apply X700 playback fix
+
+on:
+  push:
+    branches: [new_models]
+    paths:
+      - '.github/workflows/apply-x700-playback-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: new_models
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Apply source fix
+        run: python tools/fix_x700_playback.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r test-requirements.txt
+
+      - name: Verify
+        run: |
+          python -m black src/sonyapilib/device.py src/playback_probe.py tests/test_protocols.py --line-length 120
+          python -m compileall -q src tests
+          python -m unittest discover -s tests -v
+          python -m pylint src
+          python -m flake8 src --count --show-source --statistics
+          python -m black src --check --diff --verbose --line-length 120
+
+      - name: Commit fix and clean temporary files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm tools/fix_x700_playback.py .github/workflows/apply-x700-playback-fix.yml
+          git add src/sonyapilib/device.py src/playback_probe.py tests/test_protocols.py
+          git commit -m "Fix X700 playback state regression"
+          git push origin HEAD:new_models
