@@ -1,3 +1,5 @@
+# Ruff/Pyright baseline aligned with the other Unfolded Circle integrations.
+# Legacy exceptions are explicit so CI can modernize independently from functional refactors.
 [tool.ruff]
 line-length = 120
 target-version = "py311"
