@@ -559,7 +559,7 @@ class SonyDevice:
                 transport_location = service.find(f"{URN_UPNP_DEVICE}controlURL").text
                 # pylint: disable=W1405
                 self.av_transport_url = (
-                    f"{lirc_url.scheme}://{lirc_url.netloc.split(':')[0]}:{self.dmr_port}" f"{transport_location}"
+                    f"{lirc_url.scheme}://{lirc_url.netloc.split(':')[0]}:{self.dmr_port}{transport_location}"
                 )
 
         self._refresh_capabilities()
@@ -796,7 +796,7 @@ class SonyDevice:
         parameters = ["<InstanceID>0</InstanceID>"]
         for name, value in (arguments or {}).items():
             parameters.append(f"<{name}>{value}</{name}>")
-        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' f"{''.join(parameters)}" f"</m:{action_name}>"
+        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">{"".join(parameters)}</m:{action_name}>'
         action = f"{AVTRANSPORT_SERVICE}#{action_name}"
         await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
 
@@ -1117,7 +1117,7 @@ class SonyDevice:
 
     async def _get_avtransport_action(self, action_name: str) -> str | None:
         """Execute a read-only AVTransport action for instance zero."""
-        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' "<InstanceID>0</InstanceID>" f"</m:{action_name}>"
+        data = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}"><InstanceID>0</InstanceID></m:{action_name}>'
         action = f"{AVTRANSPORT_SERVICE}#{action_name}"
         return await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
 

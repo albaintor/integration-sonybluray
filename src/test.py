@@ -156,7 +156,7 @@ async def read_avtransport_action(device: SonyDevice, action_name: str) -> dict[
     if not device.av_transport_url:
         return {"available": False}
 
-    params = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' "<InstanceID>0</InstanceID>" f"</m:{action_name}>"
+    params = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}"><InstanceID>0</InstanceID></m:{action_name}>'
     soap_action = f"{AVTRANSPORT_SERVICE}#{action_name}"
 
     try:

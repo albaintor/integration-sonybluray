@@ -666,7 +666,7 @@ async def poll_avtransport_during_event_window(
         if current != previous:
             timestamp = datetime.now().astimezone().isoformat(timespec="milliseconds")
             transitions.append((timestamp, actions, transport))
-            print(f"UPnP POLL AVTransport @ {timestamp}: " f"Actions={actions!r} TransportState={transport!r}")
+            print(f"UPnP POLL AVTransport @ {timestamp}: Actions={actions!r} TransportState={transport!r}")
             previous = current
 
         remaining = deadline - loop.time()
