@@ -33,6 +33,13 @@ class DeviceCapabilityTests(unittest.TestCase):
         self.assertEqual(info.position, 65)
         self.assertEqual(info.duration, 7200)
 
+    def test_parse_cers_legacy_viewing_wrapper(self):
+        response = """<response><activity name="viewing"><details /></activity></response>"""
+        info = SonyDevice._parse_cers_playback_info(response)
+        self.assertEqual(info.state, DeviceState.PLAYING)
+        self.assertIsNone(info.position)
+        self.assertIsNone(info.duration)
+
     def test_parse_dlna_playback_info(self):
         transport = """<Envelope><CurrentTransportState>PAUSED_PLAYBACK</CurrentTransportState>
             <CurrentSpeed>1</CurrentSpeed></Envelope>"""
@@ -42,6 +49,28 @@ class DeviceCapabilityTests(unittest.TestCase):
         self.assertEqual(info.state, DeviceState.PAUSED)
         self.assertEqual(info.position, 65)
         self.assertEqual(info.duration, 7200)
+
+
+class PlaybackFallbackTests(unittest.IsolatedAsyncioTestCase):
+    """Verify that DLNA renderer state does not corrupt physical-disc CERS state."""
+
+    async def test_stopped_dlna_zero_timing_does_not_fill_cers_disc_state(self):
+        device = SonyDevice("192.0.2.20", "test-client")
+        device.capabilities.cers = True
+        device.capabilities.dlna = True
+        device.actions["getStatus"] = XmlApiObject({"name": "getStatus", "url": "http://example/status"})
+        device._send_http = AsyncMock(return_value='<response><activity name="viewing" /></response>')
+        device._get_dlna_playback_info = AsyncMock(
+            return_value=device._parse_dlna_playback_info(
+                "<Envelope><CurrentTransportState>STOPPED</CurrentTransportState><CurrentSpeed>1</CurrentSpeed></Envelope>",
+                "<Envelope><RelTime>00:00:00</RelTime><TrackDuration>00:00:00</TrackDuration></Envelope>",
+            )
+        )
+
+        info = await device.get_playback_info()
+        self.assertEqual(info.state, DeviceState.PLAYING)
+        self.assertIsNone(info.position)
+        self.assertIsNone(info.duration)
 
 
 class RegistrationOrderingTests(unittest.IsolatedAsyncioTestCase):

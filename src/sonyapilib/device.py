@@ -1003,10 +1003,15 @@ class SonyDevice:
         root = xml.etree.ElementTree.fromstring(response)
         viewing_items: dict[str, str] | None = None
         for status in root.iter():
-            if status.tag.rsplit("}", 1)[-1] != "status" or status.attrib.get("name") != "viewing":
+            # Legacy Sony players such as the UBP-X700 use the presence of an
+            # element named "viewing" as their playback signal. Do not require
+            # a particular XML tag name: firmware variants wrap this element
+            # differently, while the historical integration only relied on
+            # the name attribute.
+            if status.attrib.get("name", "").casefold() != "viewing":
                 continue
             items: dict[str, str] = {}
-            for item in status:
+            for item in status.iter():
                 field = item.attrib.get("field")
                 value = item.attrib.get("value")
                 if field and value is not None:
@@ -1119,7 +1124,10 @@ class SonyDevice:
                 _LOGGER.debug("Cannot read AVTransport state from %s: %s", self.host, ex)
 
         if cers_info:
-            if dlna_info:
+            # AVTransport on Sony players can describe only the DLNA renderer,
+            # not the physical Blu-ray transport. A STOPPED 0/0 DLNA response
+            # must therefore not overwrite missing CERS timing for a disc.
+            if dlna_info and dlna_info.state in {DeviceState.PLAYING, DeviceState.PAUSED}:
                 cers_info.position = cers_info.position if cers_info.position is not None else dlna_info.position
                 cers_info.duration = cers_info.duration if cers_info.duration is not None else dlna_info.duration
             return cers_info

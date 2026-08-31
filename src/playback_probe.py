@@ -249,7 +249,9 @@ async def run_probe(args: argparse.Namespace) -> None:
     print("- LEGACY viewing=True with CERS STOPPED: the CERS parser has a state-detection regression.")
     print("- CERS position/duration fields present but NORMALIZED missing: parser mapping needs adjustment.")
     print("- DLNA STOPPED with 0:00:00 timing is not useful for physical Blu-ray playback.")
-    print("- No timing fields in CERS/content XML means this firmware does not expose Blu-ray timing through these APIs.")
+    print(
+        "- No timing fields in CERS/content XML means this firmware does not expose Blu-ray timing through these APIs."
+    )
 
 
 async def main() -> None:
