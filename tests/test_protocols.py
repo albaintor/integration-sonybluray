@@ -40,6 +40,18 @@ class DeviceCapabilityTests(unittest.TestCase):
         self.assertIsNone(info.position)
         self.assertIsNone(info.duration)
 
+    def test_parse_cers_content_info(self):
+        response = """<response>
+            <infoItem field="class" value="video" />
+            <infoItem field="source" value="BD" />
+            <infoItem field="mediaType" value="BD-ROM" />
+            <infoItem field="mediaFormat" value="UHD" />
+        </response>"""
+        fields = SonyDevice._parse_cers_content_info(response)
+        self.assertEqual(fields["source"], "BD")
+        self.assertEqual(fields["mediatype"], "BD-ROM")
+        self.assertEqual(fields["mediaformat"], "UHD")
+
     def test_parse_dlna_playback_info(self):
         transport = """<Envelope><CurrentTransportState>PAUSED_PLAYBACK</CurrentTransportState>
             <CurrentSpeed>1</CurrentSpeed></Envelope>"""
