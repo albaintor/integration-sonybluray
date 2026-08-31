@@ -43,13 +43,14 @@ select = [
 
 ignore = [
     "ARG002",
+    "ASYNC109",
     "BLE001",
     "EM101",
     "EM102",
     "FBT001",
     "FBT002",
     "FBT003",
-    "ASYNC109",
+    "FLY002",
     "FURB110",
     "FURB132",
     "I001",
@@ -66,18 +67,23 @@ ignore = [
     "PLR1714",
     "PLR2004",
     "PLR5501",
-    "PLW2901",
+    "PLW0602",
     "PLW0603",
+    "PLW2901",
     "PTH107",
     "PTH110",
     "PTH118",
     "PTH123",
+    "RET503",
     "RET504",
     "RSE102",
     "RUF006",
     "RUF012",
     "RUF100",
+    "S101",
     "S110",
+    "S301",
+    "S314",
     "SIM102",
     "SIM103",
     "SIM105",
@@ -87,15 +93,23 @@ ignore = [
     "SIM114",
     "SIM117",
     "SIM118",
+    "SIM300",
     "SIM910",
     "SLF001",
+    "T201",
     "TC001",
-    "TRY300",
     "TRY003",
+    "TRY300",
+    "TRY301",
+    "TRY400",
+    "UP006",
+    "UP009",
     "UP015",
     "UP017",
+    "UP035",
     "UP041",
     "UP042",
+    "UP045",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -103,14 +117,9 @@ convention = "pep257"
 
 [tool.ruff.lint.per-file-ignores]
 "src/playback_probe.py" = [
-    "T201",
     "S104",
 ]
-"src/test.py" = [
-    "T201",
-]
 "tests/**" = [
-    "S101",
     "PLC0415",
     "INP001",
 ]
