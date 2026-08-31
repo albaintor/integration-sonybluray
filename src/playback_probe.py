@@ -76,6 +76,12 @@ def parse_args() -> argparse.Namespace:
         help="Seconds to keep listening for UPnP GENA events after sampling",
     )
     parser.add_argument(
+        "--event-poll-interval",
+        type=float,
+        default=0.5,
+        help="Seconds between AVTransport polling checks while listening for events (0 disables)",
+    )
+    parser.add_argument(
         "--callback-address",
         default="",
         help="Local callback IP advertised to the player (auto-detected by default)",
@@ -618,6 +624,59 @@ class UpnpEventMonitor:
             self.runner = None
 
 
+async def poll_avtransport_during_event_window(
+    device: SonyDevice,
+    services: dict[str, DlnaService],
+    duration: float,
+    interval: float,
+) -> list[tuple[str, str, str]]:
+    """Poll the two AVTransport state getters while GENA notifications are being observed."""
+    service = services.get(AVTRANSPORT_SERVICE)
+    if service is None or duration <= 0 or interval <= 0:
+        if duration > 0:
+            await asyncio.sleep(duration)
+        return []
+
+    transitions: list[tuple[str, str, str]] = []
+    previous: tuple[str, str] | None = None
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + duration
+
+    while True:
+        actions_response, actions_error = await call_upnp_action(
+            device,
+            service,
+            "GetCurrentTransportActions",
+            {"InstanceID": "0"},
+        )
+        transport_response, transport_error = await call_upnp_action(
+            device,
+            service,
+            "GetTransportInfo",
+            {"InstanceID": "0"},
+        )
+
+        actions = soap_values(actions_response).get("Actions", "") if not actions_error else f"ERROR:{actions_error}"
+        transport = (
+            soap_values(transport_response).get("CurrentTransportState", "")
+            if not transport_error
+            else f"ERROR:{transport_error}"
+        )
+        current = (actions, transport)
+        if current != previous:
+            timestamp = datetime.now().astimezone().isoformat(timespec="milliseconds")
+            transitions.append((timestamp, actions, transport))
+            print(f"UPnP POLL AVTransport @ {timestamp}: " f"Actions={actions!r} TransportState={transport!r}")
+            previous = current
+
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(interval, remaining))
+
+    return transitions
+
+
 async def run_probe(args: argparse.Namespace) -> None:
     """Initialize the player and repeatedly sample all playback information sources."""
     device = SonyDevice(
@@ -781,13 +840,25 @@ async def run_probe(args: argparse.Namespace) -> None:
 
     if event_monitor is not None:
         wait_seconds = max(0.0, args.event_wait)
+        poll_transitions: list[tuple[str, str, str]] = []
         if wait_seconds:
+            poll_interval = max(0.0, args.event_poll_interval)
+            poll_note = f" while polling AVTransport every {poll_interval:g}s" if poll_interval > 0 else ""
             print(
-                f"Listening for additional UPnP events for {wait_seconds:g}s. "
+                f"Listening for additional UPnP events for {wait_seconds:g}s{poll_note}. "
                 "Toggle Play/Pause or navigate on the player now to look for LastChange notifications."
             )
-            await asyncio.sleep(wait_seconds)
+            poll_transitions = await poll_avtransport_during_event_window(
+                device,
+                services,
+                wait_seconds,
+                poll_interval,
+            )
         print(f"UPnP events received: {event_monitor.received}")
+        if poll_transitions:
+            print("AVTransport polling transitions during event window:")
+            for timestamp, actions, transport in poll_transitions:
+                print(f"  {timestamp}: actions={actions!r} transportState={transport!r}")
         if event_monitor.avtransport_transitions:
             print("AVTransport CurrentTransportActions transitions:")
             for timestamp, actions, transport_state in event_monitor.avtransport_transitions:
@@ -808,6 +879,7 @@ async def run_probe(args: argparse.Namespace) -> None:
     print("- ConnectionManager reports active DLNA connections and supported source/sink protocolInfo values.")
     print("- DLNA STOPPED/NO_MEDIA_PRESENT with 0:00:00 timing still indicates the network renderer is idle.")
     print("- GENA LastChange notifications can expose transport variables not returned by polling getters.")
+    print("- Event-window polling checks whether transient SOAP getter changes occur without matching GENA events.")
     print("- If GENA also reports NONE/NO_MEDIA_PRESENT while CERS reports status=disc, UPnP is network-renderer only.")
     print(
         "- If CERS only reports status=disc while AVTransport is idle, neither polling API exposes physical-disc timing."
