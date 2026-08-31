@@ -14,6 +14,7 @@ from xml.etree import ElementTree
 from sonyapilib.device import HttpMethod, PlaybackInfo, SonyDevice
 
 AVTRANSPORT_ACTIONS = ("GetTransportInfo", "GetPositionInfo", "GetMediaInfo")
+EXTRA_CERS_ACTIONS = ("getHistoryList", "getText")
 
 
 def parse_args() -> argparse.Namespace:
@@ -140,6 +141,18 @@ async def read_cers_content(device: SonyDevice) -> tuple[str | None, str | None]
         return None, f"{type(exc).__name__}: {exc}"
 
 
+async def read_cers_action(device: SonyDevice, action_name: str) -> tuple[str | None, str | None]:
+    """Read one optional CERS action without interpreting its firmware-specific payload."""
+    action = device.actions.get(action_name)
+    if action is None or action.url is None:
+        return None, f"{action_name} not advertised"
+    try:
+        response = await device._send_http(action.url, method=HttpMethod.GET, raise_errors=True)
+        return response, None
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        return None, f"{type(exc).__name__}: {exc}"
+
+
 async def read_dlna(device: SonyDevice) -> tuple[dict[str, str | None], PlaybackInfo | None, str | None]:
     """Read AVTransport responses and parse transport/position information."""
     if not device.av_transport_url:
@@ -192,6 +205,21 @@ async def run_probe(args: argparse.Namespace) -> None:
             print(content_response)
             print("--- END RAW getContentInformation ---")
     print()
+
+    for action_name in EXTRA_CERS_ACTIONS:
+        action_response, action_error = await read_cers_action(device, action_name)
+        if action_error:
+            print(f"{action_name}: {action_error}")
+            continue
+        print(f"{action_name} fields:")
+        summary = summarize_xml(action_response)
+        for record in summary:
+            print(f"  {record}")
+        if args.raw and action_response:
+            print(f"--- RAW {action_name} ---")
+            print(action_response)
+            print(f"--- END RAW {action_name} ---")
+        print()
 
     previous_position: int | None = None
     for sample in range(1, max(1, args.samples) + 1):
