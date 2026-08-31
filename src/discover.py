@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import httpx
+
 # import netifaces
 from defusedxml import DefusedXmlException
 from defusedxml.ElementTree import ParseError, fromstring
@@ -176,6 +177,7 @@ async def async_send_ssdp_broadcast_ip(ip_addr: str) -> Set[str]:
 
 
 def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
+    # pylint: disable=too-many-statements
     """
     Evaluate SCPD XML.
 

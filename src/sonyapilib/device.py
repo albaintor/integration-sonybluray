@@ -519,6 +519,7 @@ class SonyDevice:
                     self.capabilities.wol = True
 
     async def _parse_dmr(self, data) -> bool:
+        # pylint: disable=too-many-locals
         """Parse DMR xml data.
 
         :return: True if IRCC data is read and actions list is filled in

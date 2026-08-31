@@ -156,11 +156,7 @@ async def read_avtransport_action(device: SonyDevice, action_name: str) -> dict[
     if not device.av_transport_url:
         return {"available": False}
 
-    params = (
-        f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">'
-        "<InstanceID>0</InstanceID>"
-        f"</m:{action_name}>"
-    )
+    params = f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">' "<InstanceID>0</InstanceID>" f"</m:{action_name}>"
     soap_action = f"{AVTRANSPORT_SERVICE}#{action_name}"
 
     try:
@@ -221,8 +217,7 @@ async def diagnose(args: argparse.Namespace) -> dict[str, Any]:
     ircc = bool(descriptor.get("ircc_advertised") or device.control_url)
     cers = bool(descriptor.get("cers_action_list_url") or device.actions)
     dlna_transport = bool(
-        device.av_transport_url
-        or any("AVTransport" in service for service in descriptor.get("services", []))
+        device.av_transport_url or any("AVTransport" in service for service in descriptor.get("services", []))
     )
     wol_advertised = bool(descriptor.get("magic_packet_wake_supported"))
     wol_configured = bool(device.mac)

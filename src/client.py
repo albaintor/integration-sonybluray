@@ -213,6 +213,7 @@ class SonyBlurayDevice:
         self._update_task = None
 
     async def update(self, deferred_update=0):
+        # pylint: disable=too-many-statements
         """Update data."""
         if deferred_update > 0:
             await asyncio.sleep(deferred_update)
