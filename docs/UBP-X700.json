@@ -1,0 +1,304 @@
+{
+  "api_version": 3,
+  "av_transport": {
+    "current_transport_actions": {
+      "available": true,
+      "response": [
+        {
+          "attributes": {
+            "encodingStyle": "http://schemas.xmlsoap.org/soap/encoding/"
+          },
+          "tag": "Envelope"
+        }
+      ]
+    },
+    "media_info": {
+      "available": true,
+      "response": [
+        {
+          "attributes": {
+            "encodingStyle": "http://schemas.xmlsoap.org/soap/encoding/"
+          },
+          "tag": "Envelope"
+        },
+        {
+          "tag": "NrTracks",
+          "text": "0"
+        },
+        {
+          "tag": "MediaDuration",
+          "text": "00:00:00"
+        },
+        {
+          "tag": "PlayMedium",
+          "text": "NONE"
+        },
+        {
+          "tag": "RecordMedium",
+          "text": "NOT_IMPLEMENTED"
+        },
+        {
+          "tag": "WriteStatus",
+          "text": "NOT_IMPLEMENTED"
+        }
+      ]
+    },
+    "position_info": {
+      "available": true,
+      "response": [
+        {
+          "attributes": {
+            "encodingStyle": "http://schemas.xmlsoap.org/soap/encoding/"
+          },
+          "tag": "Envelope"
+        },
+        {
+          "tag": "Track",
+          "text": "0"
+        },
+        {
+          "tag": "TrackDuration",
+          "text": "00:00:00"
+        },
+        {
+          "tag": "RelTime",
+          "text": "00:00:00"
+        },
+        {
+          "tag": "AbsTime",
+          "text": "00:00:00"
+        },
+        {
+          "tag": "RelCount",
+          "text": "0"
+        },
+        {
+          "tag": "AbsCount",
+          "text": "0"
+        }
+      ]
+    },
+    "transport_info": {
+      "available": true,
+      "response": [
+        {
+          "attributes": {
+            "encodingStyle": "http://schemas.xmlsoap.org/soap/encoding/"
+          },
+          "tag": "Envelope"
+        },
+        {
+          "tag": "CurrentTransportState",
+          "text": "NO_MEDIA_PRESENT"
+        },
+        {
+          "tag": "CurrentTransportStatus",
+          "text": "OK"
+        },
+        {
+          "tag": "CurrentSpeed",
+          "text": "1"
+        }
+      ]
+    }
+  },
+  "available_cers_actions": [
+    "getContentInformation",
+    "getHistoryList",
+    "getRemoteCommandList",
+    "getStatus",
+    "getSystemInformation",
+    "getText",
+    "register",
+    "sendText"
+  ],
+  "available_remote_commands": [],
+  "capabilities": {
+    "backend": "ircc_cers",
+    "cers": true,
+    "dlna_transport": true,
+    "ircc": true,
+    "wol_advertised": true,
+    "wol_configured": true
+  },
+  "cers": {
+    "getContentInformation": {
+      "available": true,
+      "error": "ClientResponseError: 403, message='Forbidden', url='http://192.168.1.117:50002/getContentInformation'",
+      "url": "http://192.168.1.117:50002/getContentInformation"
+    },
+    "getStatus": {
+      "available": true,
+      "error": "ClientResponseError: 403, message='Forbidden', url='http://192.168.1.117:50002/getStatus'",
+      "url": "http://192.168.1.117:50002/getStatus"
+    },
+    "getSystemInformation": {
+      "available": true,
+      "response": [
+        {
+          "tag": "name",
+          "text": "BDPlayer"
+        },
+        {
+          "tag": "generation",
+          "text": "2017"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B119A"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B120A"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B122A"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B123A"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B126A"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B119J"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B127J"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B119P"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B120P"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B121P"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B122P"
+        },
+        {
+          "attributes": {
+            "bundled": "true"
+          },
+          "tag": "remoteType",
+          "text": "RMT-B127P"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B119C"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B120C"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B122C"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B127C"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B127T"
+        },
+        {
+          "tag": "remoteType",
+          "text": "RMT-B115A"
+        },
+        {
+          "attributes": {
+            "name": "CERS-DEVICE-ID"
+          },
+          "tag": "actionHeader"
+        },
+        {
+          "tag": "class",
+          "text": "video"
+        },
+        {
+          "tag": "class",
+          "text": "music"
+        },
+        {
+          "tag": "source",
+          "text": "BD"
+        },
+        {
+          "tag": "source",
+          "text": "DVD"
+        },
+        {
+          "tag": "source",
+          "text": "CD"
+        },
+        {
+          "tag": "source",
+          "text": "Net"
+        },
+        {
+          "attributes": {
+            "name": "Notification"
+          },
+          "tag": "function"
+        },
+        {
+          "attributes": {
+            "name": "WOL"
+          },
+          "tag": "function"
+        },
+        {
+          "attributes": {
+            "field": "MAC",
+            "value": "38-18-4c-31-5a-45"
+          },
+          "tag": "functionItem"
+        }
+      ],
+      "url": "http://192.168.1.117:50002/getSystemInformation"
+    }
+  },
+  "descriptor": {
+    "cers_action_list_url": null,
+    "device_types": [
+      "urn:schemas-upnp-org:device:MediaRenderer:1"
+    ],
+    "friendly_name": "UBP-X700",
+    "ircc_advertised": false,
+    "magic_packet_wake_supported": true,
+    "manufacturer": "Sony Corporation",
+    "model": "UBP-X700",
+    "scalar_web_api": false,
+    "services": [
+      "urn:schemas-upnp-org:service:AVTransport:1",
+      "urn:schemas-upnp-org:service:ConnectionManager:1",
+      "urn:schemas-upnp-org:service:RenderingControl:1"
+    ],
+    "standard_dmr": true
+  },
+  "endpoints": {
+    "av_transport": "http://192.168.1.117:52323/upnp/control/AVTransport",
+    "cers_action_list": "http://192.168.1.117:50002/actionList",
+    "ircc_control": "http://192.168.1.117:50001/upnp/control/IRCC"
+  },
+  "initialization_error": "ClientResponseError: 403, message='Forbidden', url='http://192.168.1.117:50002/getRemoteCommandList'",
+  "initialized": false,
+  "target": {
+    "address": "192.168.1.117",
+    "dmr_url": "http://192.168.1.117:52323/dmr.xml",
+    "ircc_url": "http://192.168.1.117:50001/Ircc.xml"
+  }
+}

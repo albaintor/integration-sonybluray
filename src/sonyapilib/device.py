@@ -11,6 +11,7 @@ import logging
 import socket
 import struct
 import xml.etree.ElementTree
+from dataclasses import dataclass
 from enum import Enum
 from urllib.parse import quote, urljoin, urlparse
 
@@ -29,6 +30,7 @@ URN_SONY_AV = "{urn:schemas-sony-com:av}"
 URN_SONY_IRCC = "urn:schemas-sony-com:serviceId:IRCC"
 URN_SCALAR_WEB_API_DEVICE_INFO = "{urn:schemas-sony-com:av}"
 WEBAPI_SERVICETYPE = "av:X_ScalarWebAPI_ServiceType"
+AVTRANSPORT_SERVICE = "urn:schemas-upnp-org:service:AVTransport:1"
 
 
 class DeviceState(Enum):
@@ -37,6 +39,94 @@ class DeviceState(Enum):
     OFF = 0
     STOPPED = 1
     PLAYING = 2
+    PAUSED = 3
+
+
+class ControlProtocol(Enum):
+    """Network protocols exposed by a Sony device."""
+
+    IRCC = "ircc"
+    CERS = "cers"
+    SCALAR = "scalar"
+    DLNA = "dlna"
+    WOL = "wol"
+
+
+@dataclass
+class DeviceCapabilities:
+    """Network capabilities detected from device descriptors and actions."""
+
+    ircc: bool = False
+    cers: bool = False
+    scalar: bool = False
+    dlna: bool = False
+    wol: bool = False
+
+    @classmethod
+    def from_protocols(cls, protocols: list[str] | None) -> "DeviceCapabilities":
+        """Create capabilities from values persisted in the integration config."""
+        values = set(protocols or [])
+        return cls(
+            ircc=ControlProtocol.IRCC.value in values,
+            cers=ControlProtocol.CERS.value in values,
+            scalar=ControlProtocol.SCALAR.value in values,
+            dlna=ControlProtocol.DLNA.value in values,
+            wol=ControlProtocol.WOL.value in values,
+        )
+
+    @classmethod
+    def legacy_defaults(cls) -> "DeviceCapabilities":
+        """Preserve the feature set of configurations created before detection existed."""
+        return cls(ircc=True, cers=True, dlna=True, wol=True)
+
+    @property
+    def protocols(self) -> list[str]:
+        """Return enabled protocols in a stable, serializable order."""
+        enabled = {
+            ControlProtocol.IRCC: self.ircc,
+            ControlProtocol.CERS: self.cers,
+            ControlProtocol.SCALAR: self.scalar,
+            ControlProtocol.DLNA: self.dlna,
+            ControlProtocol.WOL: self.wol,
+        }
+        return [protocol.value for protocol, available in enabled.items() if available]
+
+    @property
+    def media_state(self) -> bool:
+        """Return whether playback state and timing information can be queried."""
+        return self.cers or self.dlna
+
+    @property
+    def backend(self) -> str:
+        """Return the primary control backend selected for this device."""
+        if self.ircc:
+            return "scalar_ircc" if self.scalar else "ircc_cers"
+        if self.dlna:
+            return "dlna_only"
+        if self.wol:
+            return "wol_only"
+        return "unsupported"
+
+    @property
+    def transport_protocol(self) -> str | None:
+        """Return the protocol used for play, pause, stop, next and previous."""
+        if self.ircc:
+            return ControlProtocol.IRCC.value
+        if self.dlna:
+            return ControlProtocol.DLNA.value
+        return None
+
+
+@dataclass
+class PlaybackInfo:
+    """Normalized playback information returned by CERS or AVTransport."""
+
+    state: DeviceState = DeviceState.STOPPED
+    position: int | None = None
+    duration: int | None = None
+    source: str | None = None
+    title: str | None = None
+    speed: float | None = None
 
 
 class AuthenticationResult(Enum):
@@ -175,6 +265,8 @@ class SonyDevice:
         self.cookies = None
         self.mac: str | None = None
         self.api_version = 0
+        self.capabilities = DeviceCapabilities()
+        self._initialized = False
 
         self.dmr_url = f"http://{self.host}:{self.dmr_port}/dmr.xml"
         self.app_url = f"http://{self.host}:{self.app_port}"
@@ -194,10 +286,11 @@ class SonyDevice:
         """Update this object with data from the device."""
         if not await self._update_service_urls():
             return False
-        await self._update_commands()
+        if self.capabilities.ircc:
+            await self._update_commands()
         self._add_headers()
 
-        if self.pin:
+        if self.pin and "register" in self.actions:
             self._recreate_authentication()
             try:
                 await self._update_applist()
@@ -207,12 +300,13 @@ class SonyDevice:
                     "Cannot retrieve apps list, the device probably don't support it %s",
                     ex,
                 )
+        self._initialized = True
         return True
 
     @property
     def initialized(self) -> bool:
         """Return true if initialized."""
-        return self.api_version != 0
+        return self._initialized
 
     # @staticmethod
     # def discover():
@@ -244,29 +338,54 @@ class SonyDevice:
         """Initialize the device by reading the necessary resources from it."""
         try:
             content = await self._send_http(self.dmr_url, method=HttpMethod.GET, raise_errors=True)
-        except aiohttp.ClientConnectorError as exc:
-            _LOGGER.error("Failed to connect to get DMR: %s %s", type(exc), exc)
-            return False
-        except HTTPError as exc:
+        except (aiohttp.ClientError, asyncio.TimeoutError, HTTPError) as exc:
             _LOGGER.error("Failed to get DMR: %s %s", type(exc), exc)
             return False
 
+        if not content:
+            return False
+
+        ircc_parsed = await self._parse_dmr(content)
+        if self.capabilities.scalar:
+            await self._parse_system_information_v4()
+        elif not ircc_parsed:
+            try:
+                await self._parse_ircc()
+                await self._parse_action_list()
+            # IRCC is optional on DLNA-only devices.
+            # pylint: disable=W0718
+            except Exception as ex:
+                _LOGGER.debug("IRCC is not available on %s: %s", self.host, ex)
+
+        self._refresh_capabilities()
+        if self.capabilities.cers:
+            try:
+                await self._parse_system_information()
+            # System information is optional and must not invalidate detection.
+            # pylint: disable=W0718
+            except Exception as ex:
+                _LOGGER.debug("Cannot read CERS system information from %s: %s", self.host, ex)
+
+        self._refresh_capabilities()
+        return self.capabilities.ircc or self.capabilities.dlna
+
+    def _refresh_capabilities(self) -> None:
+        """Update derived capabilities after parsing descriptors or action lists."""
+        self.capabilities.ircc = bool(self.control_url or self._ircc_categories)
+        self.capabilities.scalar = self.api_version >= 4
+        self.capabilities.cers = bool(self.actions) and not self.capabilities.scalar
+        self.capabilities.dlna = bool(self.av_transport_url)
+        self.capabilities.wol = self.capabilities.wol or bool(self.mac)
+
+    async def _parse_optional_ircc(self) -> bool:
+        """Parse the optional legacy IRCC descriptor and action list."""
         try:
-            ircc_parsed = False
-            if content:
-                ircc_parsed = await self._parse_dmr(content)
-            if self.api_version <= 3:
-                if ircc_parsed is False:
-                    await self._parse_ircc()
-                    await self._parse_action_list()
-                if self.api_version > 0:
-                    await self._parse_system_information()
-            else:
-                await self._parse_system_information_v4()
+            await self._parse_ircc()
+            await self._parse_action_list()
             return True
         # pylint: disable=W0718
-        except Exception as ex:  # pylint: disable=broad-except
-            _LOGGER.exception("failed to get device information %s", ex)
+        except Exception as ex:
+            _LOGGER.debug("IRCC is not available on %s: %s", self.host, ex)
             return False
 
     async def _parse_action_list(self):
@@ -302,6 +421,7 @@ class SonyDevice:
                 if action.mode == 3:
                     action.url = action.url + "&wolSupport=true"
                 _LOGGER.debug("Registration mode %s : %s", action.mode, action.url)
+        self._refresh_capabilities()
 
     async def _parse_ircc(self):
         content = await self._send_http(self.ircc_url, method=HttpMethod.GET, raise_errors=True)
@@ -356,6 +476,7 @@ class SonyDevice:
                 continue
 
             self._ircc_categories.add(category_info.text)
+        self._refresh_capabilities()
 
     async def _parse_system_information_v4(self):
         url = urljoin(self.base_url, "system")
@@ -370,6 +491,7 @@ class SonyDevice:
             for option in json_resp.get("result")[0]:
                 if option["option"] == "WOL":
                     self.mac = option["value"]
+                    self.capabilities.wol = True
 
     async def _parse_system_information(self):
         try:
@@ -383,6 +505,7 @@ class SonyDevice:
             for function in element:
                 if function.attrib["name"] == "WOL":
                     self.mac = function.find("functionItem").attrib["value"]
+                    self.capabilities.wol = True
 
     async def _parse_dmr(self, data) -> bool:
         """Parse DMR xml data.
@@ -391,6 +514,12 @@ class SonyDevice:
         """
         lirc_url = urlparse(self.ircc_url)
         xml_data = xml.etree.ElementTree.fromstring(data)
+
+        for element in xml_data.iter():
+            name = element.tag.rsplit("}", 1)[-1].casefold()
+            if name in {"magicpacketwakesupported", "x_magicpacketwakesupported"}:
+                value = (element.text or "").strip().casefold()
+                self.capabilities.wol = value in {"1", "true", "yes", "supported"}
 
         for device in find_in_xml(
             xml_data,
@@ -401,6 +530,8 @@ class SonyDevice:
         ):
             for service in device:
                 service_id = service.find(f"{URN_UPNP_DEVICE}serviceId")
+                if service_id is None or not service_id.text:
+                    continue
                 if "urn:upnp-org:serviceId:AVTransport" not in service_id.text:
                     continue
                 transport_location = service.find(f"{URN_UPNP_DEVICE}controlURL").text
@@ -409,20 +540,21 @@ class SonyDevice:
                     f"{lirc_url.scheme}://{lirc_url.netloc.split(':')[0]}:{self.dmr_port}" f"{transport_location}"
                 )
 
+        self._refresh_capabilities()
+
         # this is only true for v4 devices except some v3 checks after.
-        if WEBAPI_SERVICETYPE not in data:
+        scalar_api = WEBAPI_SERVICETYPE in data or any(
+            element.tag.rsplit("}", 1)[-1] == "X_ScalarWebAPI_DeviceInfo" for element in xml_data.iter()
+        )
+        if not scalar_api:
             return False
 
         _LOGGER.debug("Device registration mode 3 or 4, extracting further information...")
-        try:
-            await self._parse_ircc()
-            await self._parse_action_list()
+        if await self._parse_optional_ircc():
             _LOGGER.debug("Device registration mode is : %s", self.actions["register"].mode)
             return True
-        # pylint: disable=W0718
-        except Exception:
-            _LOGGER.debug("Device registration mode is 4")
 
+        _LOGGER.debug("Device registration mode is 4")
         self.api_version = 4
         device_info_name = f"{URN_SCALAR_WEB_API_DEVICE_INFO}X_ScalarWebAPI_DeviceInfo"
 
@@ -448,7 +580,8 @@ class SonyDevice:
                 self.actions["getRemoteCommandList"] = action
                 self.control_url = urljoin(self.base_url, "IRCC")
 
-        return False
+        self._refresh_capabilities()
+        return True
 
     async def _update_commands(self):
         """Update the list of commands."""
@@ -601,7 +734,7 @@ class SonyDevice:
             return None
 
         try:
-            cookies = {} if self.cookies is None else {"auth", self.cookies.get("auth", None)}
+            cookies = {} if self.cookies is None else {"auth": self.cookies.get("auth", None)}
             async with aiohttp.ClientSession(
                 timeout=ClientTimeout(sock_read=60, sock_connect=timeout, connect=timeout, total=60),
                 cookies=cookies,
@@ -629,6 +762,34 @@ class SonyDevice:
         if response:
             return response
         return None
+
+    async def _send_avtransport_action(self, action_name: str, arguments: dict[str, str] | None = None) -> None:
+        """Send a transport command through UPnP AVTransport."""
+        parameters = ["<InstanceID>0</InstanceID>"]
+        for name, value in (arguments or {}).items():
+            parameters.append(f"<{name}>{value}</{name}>")
+        data = (
+            f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">'
+            f"{''.join(parameters)}"
+            f"</m:{action_name}>"
+        )
+        action = f"{AVTRANSPORT_SERVICE}#{action_name}"
+        await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
+
+    async def _send_transport_command(
+        self,
+        ircc_command: str,
+        dlna_action: str,
+        dlna_arguments: dict[str, str] | None = None,
+    ) -> None:
+        """Route transport controls to IRCC, or to DLNA when IRCC is absent."""
+        if self.capabilities.ircc and ircc_command in self.commands:
+            await self.send_command(ircc_command)
+            return
+        if self.capabilities.dlna:
+            await self._send_avtransport_action(dlna_action, dlna_arguments)
+            return
+        raise ValueError(f"No protocol can send transport command {ircc_command}")
 
     async def _send_req_ircc(self, params):
         """Send an IRCC command via HTTP to Sony Bravia."""
@@ -785,6 +946,8 @@ class SonyDevice:
 
     def wakeonlan(self, broadcast="255.255.255.255") -> None:
         """Send WOL command. to known mac addresses."""
+        if not self.mac:
+            raise ValueError("A MAC address is required for Wake-on-LAN")
         messages = [self._create_magic_packet(self.mac)]
         broadcast = "<broadcast>" if broadcast is None else broadcast
         socket_instance = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -792,34 +955,179 @@ class SonyDevice:
         for msg in messages:
             socket_instance.sendto(msg, (broadcast, 9))
 
+    @staticmethod
+    def _parse_time(value: str | None) -> int | None:
+        """Convert CERS seconds or a UPnP time value to integer seconds."""
+        if not value or value in {"NOT_IMPLEMENTED", "-", "--:--:--"}:
+            return None
+        try:
+            return max(0, int(float(value)))
+        except ValueError:
+            pass
+
+        parts = value.split(":")
+        if len(parts) != 3:
+            return None
+        try:
+            hours, minutes, seconds = parts
+            return max(0, int(hours) * 3600 + int(minutes) * 60 + int(float(seconds)))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _find_xml_text(root, name: str) -> str | None:
+        """Find text by local XML name in responses with varying namespace prefixes."""
+        for element in root.iter():
+            if element.tag.rsplit("}", 1)[-1] == name and element.text:
+                return element.text.strip()
+        return None
+
+    @classmethod
+    def _parse_cers_playback_info(cls, response: str) -> PlaybackInfo:
+        """Normalize the optional fields returned by the CERS getStatus action."""
+        root = xml.etree.ElementTree.fromstring(response)
+        viewing_items: dict[str, str] | None = None
+        for status in root.iter():
+            if status.tag.rsplit("}", 1)[-1] != "status" or status.attrib.get("name") != "viewing":
+                continue
+            items: dict[str, str] = {}
+            for item in status:
+                field = item.attrib.get("field")
+                value = item.attrib.get("value")
+                if field and value is not None:
+                    items[field.casefold()] = value
+            viewing_items = items
+            break
+
+        if viewing_items is None:
+            return PlaybackInfo(state=DeviceState.STOPPED)
+
+        speed_value = viewing_items.get("speed")
+        try:
+            speed = float(speed_value) if speed_value is not None else None
+        except ValueError:
+            speed = None
+
+        state_value = viewing_items.get("state", "").casefold()
+        if state_value in {"paused", "pause", "paused_playback"} or speed == 0:
+            state = DeviceState.PAUSED
+        elif state_value in {"stopped", "stop", "no_media_present"}:
+            state = DeviceState.STOPPED
+        else:
+            state = DeviceState.PLAYING
+
+        duration = next(
+            (
+                cls._parse_time(viewing_items.get(field))
+                for field in ("duration", "totaltime", "reproductiontime")
+                if viewing_items.get(field) is not None
+            ),
+            None,
+        )
+        position = next(
+            (
+                cls._parse_time(viewing_items.get(field))
+                for field in ("position", "currentposition", "elapsedtime", "reproductionpoint")
+                if viewing_items.get(field) is not None
+            ),
+            None,
+        )
+        return PlaybackInfo(
+            state=state,
+            position=position,
+            duration=duration,
+            source=viewing_items.get("source"),
+            title=viewing_items.get("title"),
+            speed=speed,
+        )
+
+    @classmethod
+    def _parse_dlna_playback_info(cls, transport_response: str | None, position_response: str | None) -> PlaybackInfo:
+        """Normalize AVTransport GetTransportInfo and GetPositionInfo responses."""
+        transport_state = None
+        speed = None
+        if transport_response:
+            transport_root = xml.etree.ElementTree.fromstring(transport_response)
+            transport_state = cls._find_xml_text(transport_root, "CurrentTransportState")
+            speed_value = cls._find_xml_text(transport_root, "CurrentSpeed")
+            try:
+                speed = float(speed_value) if speed_value is not None else None
+            except ValueError:
+                speed = None
+
+        states = {
+            "PLAYING": DeviceState.PLAYING,
+            "PAUSED_PLAYBACK": DeviceState.PAUSED,
+            "PAUSED_RECORDING": DeviceState.PAUSED,
+            "STOPPED": DeviceState.STOPPED,
+            "NO_MEDIA_PRESENT": DeviceState.STOPPED,
+        }
+        state = states.get(transport_state or "", DeviceState.STOPPED)
+
+        position = None
+        duration = None
+        if position_response:
+            position_root = xml.etree.ElementTree.fromstring(position_response)
+            position = cls._parse_time(cls._find_xml_text(position_root, "RelTime"))
+            duration = cls._parse_time(cls._find_xml_text(position_root, "TrackDuration"))
+
+        return PlaybackInfo(state=state, position=position, duration=duration, speed=speed)
+
+    async def _get_avtransport_action(self, action_name: str) -> str | None:
+        """Execute a read-only AVTransport action for instance zero."""
+        data = (
+            f'<m:{action_name} xmlns:m="{AVTRANSPORT_SERVICE}">'
+            "<InstanceID>0</InstanceID>"
+            f"</m:{action_name}>"
+        )
+        action = f"{AVTRANSPORT_SERVICE}#{action_name}"
+        return await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
+
+    async def _get_dlna_playback_info(self) -> PlaybackInfo:
+        """Read playback state, duration and position through AVTransport."""
+        transport_response = await self._get_avtransport_action("GetTransportInfo")
+        position_response = await self._get_avtransport_action("GetPositionInfo")
+        return self._parse_dlna_playback_info(transport_response, position_response)
+
+    async def get_playback_info(self) -> PlaybackInfo:
+        """Return normalized playback information using CERS first, then DLNA."""
+        cers_info = None
+        if self.capabilities.cers and "getStatus" in self.actions:
+            response = await self._send_http(self._get_action("getStatus").url, method=HttpMethod.GET)
+            if not response:
+                return PlaybackInfo(state=DeviceState.OFF)
+            cers_info = self._parse_cers_playback_info(response)
+
+        dlna_info = None
+        if self.capabilities.dlna:
+            try:
+                dlna_info = await self._get_dlna_playback_info()
+            # Some players only expose AVTransport for network media.
+            # pylint: disable=W0718
+            except Exception as ex:
+                _LOGGER.debug("Cannot read AVTransport state from %s: %s", self.host, ex)
+
+        if cers_info:
+            if dlna_info:
+                cers_info.position = cers_info.position if cers_info.position is not None else dlna_info.position
+                cers_info.duration = cers_info.duration if cers_info.duration is not None else dlna_info.duration
+            return cers_info
+        if dlna_info:
+            return dlna_info
+        return PlaybackInfo(state=DeviceState.STOPPED)
+
     async def get_status(self) -> DeviceState:
-        """Return status of the device."""
-        response = await self._send_http(self._get_action("getStatus").url, method=HttpMethod.GET)
-        if not response:
-            return DeviceState.OFF
-        for element in find_in_xml(response, [("status", True)]):
-            if element.attrib["name"] == "viewing":
-                return DeviceState.PLAYING
-        return DeviceState.STOPPED
+        """Return the normalized playback state of the device."""
+        return (await self.get_playback_info()).state
 
     async def get_playing_status(self):
-        """Get the status of playback from the device."""
-        data = """<m:GetTransportInfo xmlns:m="urn:schemas-upnp-org:service:AVTransport:1">
-            <InstanceID>0</InstanceID>
-            </m:GetTransportInfo>"""
-
-        action = "urn:schemas-upnp-org:service:AVTransport:1#GetTransportInfo"
-
-        content = await self._post_soap_request(url=self.av_transport_url, params=data, action=action)
-        if not content:
-            return "OFF"
-
-        return find_in_xml(content, [".//CurrentTransportState"]).text
+        """Get the legacy string representation of the playback state."""
+        return (await self.get_playback_info()).state.name
 
     async def get_power_status(self, timeout=TIMEOUT):
         """Check if the device is online."""
         if self.api_version < 4:
-            url = self.actionlist_url
+            url = self.actionlist_url or self.dmr_url
             try:
                 await self._send_http(
                     url,
@@ -867,14 +1175,19 @@ class SonyDevice:
     async def power(self, power_on, broadcast="255.255.255.255"):
         """Powers the device on or shuts it off."""
         if power_on:
-            _LOGGER.debug("Wake on lan")
-            self.wakeonlan(broadcast)
-            # Try using the power on command incase the WOL doesn't work
-            if self.initialized and not await self.get_power_status(timeout=2):
+            if self.mac:
+                _LOGGER.debug("Wake on LAN")
+                self.wakeonlan(broadcast)
+            elif not self.capabilities.ircc:
+                raise ValueError("This device has no available power-on protocol")
+
+            if self.capabilities.ircc and self.initialized and not await self.get_power_status(timeout=2):
                 # Try using the power on command incase the WOL doesn't work
                 _LOGGER.debug("Sends power command asynchronously")
                 self._event_loop.create_task(self.send_command("Power"))
         else:
+            if not self.capabilities.ircc:
+                raise ValueError("Power off requires IRCC")
             await self.send_command("Power")
 
     def get_apps(self):
@@ -1002,16 +1315,16 @@ class SonyDevice:
         await self.send_command("Green")
 
     async def play(self):
-        """Send the command 'play' to the connected device."""
-        await self.send_command("Play")
+        """Start playback through IRCC or AVTransport."""
+        await self._send_transport_command("Play", "Play", {"Speed": "1"})
 
     async def stop(self):
-        """Send the command 'stop' to the connected device."""
-        await self.send_command("Stop")
+        """Stop playback through IRCC or AVTransport."""
+        await self._send_transport_command("Stop", "Stop")
 
     async def pause(self):
-        """Send the command 'pause' to the connected device."""
-        await self.send_command("Pause")
+        """Pause playback through IRCC or AVTransport."""
+        await self._send_transport_command("Pause", "Pause")
 
     async def rewind(self):
         """Send the command 'rewind' to the connected device."""
@@ -1022,12 +1335,26 @@ class SonyDevice:
         await self.send_command("Forward")
 
     async def prev(self):
-        """Send the command 'prev' to the connected device."""
-        await self.send_command("Prev")
+        """Select the previous item through IRCC or AVTransport."""
+        await self._send_transport_command("Prev", "Previous")
 
     async def next(self):
-        """Send the command 'next' to the connected device."""
-        await self.send_command("Next")
+        """Select the next item through IRCC or AVTransport."""
+        await self._send_transport_command("Next", "Next")
+
+    async def seek(self, position: int):
+        """Seek DLNA playback to an absolute position in seconds."""
+        if not self.capabilities.dlna:
+            raise ValueError("DLNA AVTransport is required for seek")
+        hours, remainder = divmod(max(0, int(position)), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        await self._send_avtransport_action(
+            "Seek",
+            {
+                "Unit": "REL_TIME",
+                "Target": f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+            },
+        )
 
     async def replay(self):
         """Send the command 'replay' to the connected device."""

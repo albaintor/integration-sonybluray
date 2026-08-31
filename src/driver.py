@@ -335,10 +335,9 @@ def _register_available_entities(config_device: config.DeviceInstance, device: S
     """
     # plain and simple for now: only one media_player per AVR device
     # entity = media_player.create_entity(device)
-    entities = [
-        media_player.SonyMediaPlayer(config_device, device),
-        remote.SonyRemote(config_device, device),
-    ]
+    entities = [media_player.SonyMediaPlayer(config_device, device)]
+    if device.capabilities.ircc:
+        entities.append(remote.SonyRemote(config_device, device))
     for entity in entities:
         if api.available_entities.contains(entity.id):
             api.available_entities.remove(entity.id)

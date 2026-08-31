@@ -55,6 +55,7 @@ class DeviceInstance:
     mac_address: str | None = field(default=None)
     pin_code: int | None = field(default=None)
     polling: bool = field(default=False)
+    protocols: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         """Apply default values on missing fields."""
@@ -65,6 +66,8 @@ class DeviceInstance:
                 and getattr(self, attribute.name) is None
             ):
                 setattr(self, attribute.name, attribute.default)
+        if self.protocols is None:
+            self.protocols = []
 
 
 class _EnhancedJSONEncoder(json.JSONEncoder):

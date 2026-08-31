@@ -640,12 +640,13 @@ async def handle_device_choice(
             psk=_password_key,
         )
 
-        try:
-            await _sony_device.init_device()
-        # pylint: disable=W0718
-        except Exception:
-            pass
-        register_result = await _sony_device.register()
+        if not await _sony_device.init_device():
+            _LOG.error("No supported IRCC or DLNA protocol found on %s", _host)
+            return SetupError(error_type=IntegrationSetupError.CONNECTION_REFUSED)
+
+        register_result = AuthenticationResult.SUCCESS
+        if _sony_device.capabilities.ircc and "register" in _sony_device.actions:
+            register_result = await _sony_device.register()
         if register_result == AuthenticationResult.PIN_NEEDED:
             _setup_step = SetupSteps.PAIRING_MODE
             return RequestUserInput(
@@ -699,6 +700,7 @@ async def handle_device_choice(
             pin_code=None,
             client_name=_client_name,
             polling=_polling,
+            protocols=_sony_device.capabilities.protocols,
         )
     )  # triggers Sony BR instance creation
     config.devices.store()
@@ -794,6 +796,7 @@ async def handle_pairing(msg: UserDataResponse) -> SetupComplete | SetupError:
             pin_code=pin_code,
             client_name=_client_name,
             polling=_polling,
+            protocols=_sony_device.capabilities.protocols,
         )
     )  # triggers Sony BR instance creation
     config.devices.store()
