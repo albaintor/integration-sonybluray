@@ -484,6 +484,24 @@ def summarize_event_payload(xml_data: str | None, limit: int = 50) -> list[str]:
     return records
 
 
+def last_change_values(xml_data: str | None) -> dict[str, str]:
+    """Extract val attributes from an evented UPnP LastChange payload."""
+    outer = soap_values(xml_data)
+    last_change = outer.get("LastChange")
+    if not last_change:
+        return {}
+    try:
+        root = ElementTree.fromstring(last_change)
+    except ElementTree.ParseError:
+        return {}
+
+    values: dict[str, str] = {}
+    for element in root.iter():
+        if "val" in element.attrib:
+            values[local_name(element.tag)] = element.attrib["val"]
+    return values
+
+
 class UpnpEventMonitor:
     """Temporary GENA callback server and subscriptions for read-only diagnostics."""
 
@@ -502,6 +520,8 @@ class UpnpEventMonitor:
         self.session: aiohttp.ClientSession | None = None
         self.subscriptions: list[tuple[str, str, str]] = []
         self.received = 0
+        self.closing = False
+        self.avtransport_transitions: list[tuple[str, str, str | None]] = []
 
     async def start(self) -> None:
         """Start a local HTTP endpoint that accepts UPnP NOTIFY requests."""
@@ -550,11 +570,22 @@ class UpnpEventMonitor:
     async def _handle_notify(self, request: web.Request) -> web.Response:
         """Receive and print one GENA NOTIFY payload."""
         body = await request.text()
+        if self.closing:
+            return web.Response(status=200)
+
         self.received += 1
         label = request.match_info.get("service", "unknown")
         sid = request.headers.get("SID", "-")
         seq = request.headers.get("SEQ", "-")
         timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+
+        if label == "AVTransport":
+            values = last_change_values(body)
+            if "CurrentTransportActions" in values:
+                self.avtransport_transitions.append(
+                    (timestamp, values["CurrentTransportActions"], values.get("TransportState"))
+                )
+
         print(f"\nUPnP EVENT {label} @ {timestamp} SID={sid} SEQ={seq}")
         details = summarize_event_payload(body)
         if details:
@@ -570,6 +601,7 @@ class UpnpEventMonitor:
 
     async def close(self) -> None:
         """Unsubscribe and stop the temporary callback server."""
+        self.closing = True
         if self.session is not None:
             for label, event_url, sid in self.subscriptions:
                 try:
@@ -756,6 +788,11 @@ async def run_probe(args: argparse.Namespace) -> None:
             )
             await asyncio.sleep(wait_seconds)
         print(f"UPnP events received: {event_monitor.received}")
+        if event_monitor.avtransport_transitions:
+            print("AVTransport CurrentTransportActions transitions:")
+            for timestamp, actions, transport_state in event_monitor.avtransport_transitions:
+                state_text = f" transportState={transport_state!r}" if transport_state is not None else ""
+                print(f"  {timestamp}: actions={actions!r}{state_text}")
         if event_monitor.received == 0:
             print(
                 "  No NOTIFY received. If SUBSCRIBE succeeded, verify that the callback address is "
