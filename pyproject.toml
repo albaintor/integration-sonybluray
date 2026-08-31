@@ -1,0 +1,185 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "B",
+    "I",
+    "PL",
+    "UP",
+    "SIM",
+    "ASYNC",
+    "S",
+    "C4",
+    "RUF",
+    "TRY",
+    "PERF",
+    "DTZ",
+    "PTH",
+    "RET",
+    "G",
+    "LOG",
+    "PIE",
+    "A",
+    "ARG",
+    "BLE",
+    "ISC",
+    "FLY",
+    "FURB",
+    "RSE",
+    "T20",
+    "INP",
+    "TCH",
+    "EM",
+    "SLF",
+    "TID",
+    "FBT",
+]
+
+ignore = [
+    "ARG002",
+    "BLE001",
+    "EM101",
+    "EM102",
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    "ASYNC109",
+    "FURB110",
+    "FURB132",
+    "I001",
+    "INP001",
+    "ISC001",
+    "ISC003",
+    "PERF401",
+    "PIE804",
+    "PIE808",
+    "PLR0911",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "PLR1714",
+    "PLR2004",
+    "PLR5501",
+    "PLW2901",
+    "PLW0603",
+    "PTH107",
+    "PTH110",
+    "PTH118",
+    "PTH123",
+    "RET504",
+    "RSE102",
+    "RUF006",
+    "RUF012",
+    "RUF100",
+    "S110",
+    "SIM102",
+    "SIM103",
+    "SIM105",
+    "SIM108",
+    "SIM110",
+    "SIM113",
+    "SIM114",
+    "SIM117",
+    "SIM118",
+    "SIM910",
+    "SLF001",
+    "TC001",
+    "TRY300",
+    "TRY003",
+    "UP015",
+    "UP017",
+    "UP041",
+    "UP042",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.per-file-ignores]
+"src/playback_probe.py" = [
+    "T201",
+    "S104",
+]
+"src/test.py" = [
+    "T201",
+]
+"tests/**" = [
+    "S101",
+    "PLC0415",
+    "INP001",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+combine-as-imports = true
+split-on-trailing-comma = false
+known-first-party = []
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pytz".msg = "use datetime.timezone instead"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.format]
+line-ending = "auto"
+quote-style = "double"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.pyright]
+include = ["src"]
+exclude = ["src/test.py", "src/playback_probe.py", "**/__pycache__", "build", "dist"]
+extraPaths = ["src"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+useLibraryCodeForTypes = true
+reportMissingImports = false
+reportUntypedBaseClass = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportArgumentType = false
+reportAssignmentType = false
+reportCallIssue = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = "error"
+reportMissingParameterType = false
+reportUnusedVariable = false
+reportUnusedImport = false
+reportUntypedFunctionDecorator = false
+reportAttributeAccessIssue = false
+reportDeprecated = false
+reportMissingTypeArgument = false
+reportRedeclaration = false
+reportGeneralTypeIssues = false
+reportIncompatibleMethodOverride = false
+reportReturnType = false
+reportOptionalMemberAccess = false
+reportOptionalSubscript = false
+reportOptionalOperand = false
+reportOptionalIterable = false
+reportConstantRedefinition = false
+reportPrivateImportUsage = false
+reportPrivateUsage = false
+reportImplicitOverride = false
+reportUnnecessaryComparison = false
+reportUnnecessaryContains = false
+reportUnnecessaryTypeIgnoreComment = "error"
+reportImplicitStringConcatenation = "error"
+deprecateTypingAliases = true
+reportUninitializedInstanceVariable = false
+reportPropertyTypeMismatch = "error"
+reportCallInDefaultInitializer = "warning"
