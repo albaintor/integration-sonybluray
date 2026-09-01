@@ -93,18 +93,20 @@ class DeviceCapabilities:
 
     @property
     def media_state(self) -> bool:
-        """Return whether playback state and timing information can be queried."""
-        return self.cers or self.dlna
+        """Return whether physical-media playback state can be queried."""
+        # Sony DMR AVTransport represents the network renderer, not the
+        # physical Blu-ray/DVD/USB transport (e.g. UBP-X800M2).
+        return self.cers
 
     @property
     def primary_dlna_transport(self) -> bool:
-        """Return whether DLNA AVTransport is the primary playback transport."""
-        return self.dlna and not self.ircc
+        """Return whether DLNA can be used as the physical-media transport."""
+        return False
 
     @property
     def media_timing(self) -> bool:
-        """Return whether static media position/duration features are reliable."""
-        return self.primary_dlna_transport
+        """Return whether physical-media position/duration are reliable."""
+        return False
 
     @property
     def backend(self) -> str:
@@ -119,11 +121,9 @@ class DeviceCapabilities:
 
     @property
     def transport_protocol(self) -> str | None:
-        """Return the protocol used for play, pause, stop, next and previous."""
+        """Return the protocol used for physical-media transport commands."""
         if self.ircc:
             return ControlProtocol.IRCC.value
-        if self.dlna:
-            return ControlProtocol.DLNA.value
         return None
 
 

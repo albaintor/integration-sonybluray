@@ -26,7 +26,7 @@ def features_for(capabilities: DeviceCapabilities) -> list[Features]:
         features.append(Features.ON_OFF)
     if capabilities.ircc:
         features.append(Features.TOGGLE)
-    if capabilities.ircc or capabilities.dlna:
+    if capabilities.ircc:
         features.extend(
             [
                 Features.PLAY_PAUSE,

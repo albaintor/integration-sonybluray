@@ -32,15 +32,20 @@ class DeviceCapabilityTests(unittest.TestCase):
         self.assertIn(Features.PLAY_PAUSE, features)
         self.assertIn(Features.MEDIA_TITLE, features)
 
-    def test_dlna_only_advertises_renderer_timing_and_seek(self):
+    def test_dlna_only_does_not_advertise_physical_media_controls(self):
         capabilities = DeviceCapabilities(dlna=True)
         features = features_for(capabilities)
-        self.assertTrue(capabilities.primary_dlna_transport)
-        self.assertTrue(capabilities.media_timing)
-        self.assertIn(Features.SEEK, features)
-        self.assertIn(Features.MEDIA_POSITION, features)
-        self.assertIn(Features.MEDIA_DURATION, features)
-        self.assertIn(Features.PLAY_PAUSE, features)
+        self.assertFalse(capabilities.primary_dlna_transport)
+        self.assertFalse(capabilities.media_state)
+        self.assertFalse(capabilities.media_timing)
+        self.assertIsNone(capabilities.transport_protocol)
+        self.assertNotIn(Features.SEEK, features)
+        self.assertNotIn(Features.MEDIA_POSITION, features)
+        self.assertNotIn(Features.MEDIA_DURATION, features)
+        self.assertNotIn(Features.PLAY_PAUSE, features)
+        self.assertNotIn(Features.STOP, features)
+        self.assertNotIn(Features.PREVIOUS, features)
+        self.assertNotIn(Features.NEXT, features)
 
     def test_parse_cers_playback_info(self):
         response = """<response><status name="viewing">
