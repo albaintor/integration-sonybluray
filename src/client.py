@@ -19,7 +19,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, States
 
 from config import DeviceInstance
-from sonyapilib.device import AuthenticationResult, DeviceState, SonyDevice
+from sonyapilib.device import DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
 ERROR_OS_WAIT = 0.5
@@ -138,10 +138,6 @@ class SonyBlurayDevice:
         )
         self._sony_device.pin = self._device_config.pin_code
         self._sony_device.mac = self._device_config.mac_address
-        if self._device_config.pin_code is None:
-            register_result = await self._sony_device.register()
-            if register_result == AuthenticationResult.PIN_NEEDED:
-                raise ConnectionError("PIN code needed")
         try:
             # response = self._sony_device._send_http(self._sony_device.dmr_url, HttpMethod.GET)
             # if response:
