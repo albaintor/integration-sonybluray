@@ -1,0 +1,49 @@
+name: Apply S780 registration fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-s780-registration-fix.yml'
+      - '.github/scripts/apply_s780_registration_fix.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/fix/s780-fresh-registration'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/s780-fresh-registration
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Apply patch
+        run: python .github/scripts/apply_s780_registration_fix.py
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r test-requirements.txt
+
+      - name: Verify
+        run: |
+          python -m unittest discover -s tests -v
+          python -m ruff check src tests
+          python -m ruff format --check src tests
+          python -m pyright
+
+      - name: Commit
+        run: |
+          rm .github/workflows/apply-s780-registration-fix.yml
+          rm .github/scripts/apply_s780_registration_fix.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/client.py src/sonyapilib/device.py tests/test_protocols.py .github/workflows/apply-s780-registration-fix.yml .github/scripts/apply_s780_registration_fix.py
+          git commit -m 'Handle legacy command-list registration dynamically'
+          git push origin HEAD:fix/s780-fresh-registration
