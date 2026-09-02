@@ -278,6 +278,7 @@ class SonyDevice:
         self.capabilities = DeviceCapabilities()
         self._initialized = False
         self._registered = False
+        self._registration_required = False
 
         self.dmr_url = f"http://{self.host}:{self.dmr_port}/dmr.xml"
         self.app_url = f"http://{self.host}:{self.app_port}"
@@ -301,16 +302,35 @@ class SonyDevice:
         self._add_headers()
         registration_action = self.actions.get("register")
         registration_mode = registration_action.mode if registration_action is not None else None
-        requires_registration = registration_mode is not None and registration_mode >= 3
+        known_registration_required = registration_mode is not None and registration_mode >= 3
+        self._registration_required = known_registration_required and not (self.pin or self._registered)
 
         if self.pin and registration_action is not None:
             self._recreate_authentication()
 
-        # Mode 3/4 command lists are protected. During initial setup we only
-        # discover capabilities and the registration action; commands are read
-        # after registration/PIN authentication has succeeded.
-        if self.capabilities.ircc and (not requires_registration or self.pin or self._registered):
-            await self._update_commands()
+        # Mode 3/4 command lists are known to be protected. Older players can
+        # also protect getRemoteCommandList until first registration (for
+        # example the BDP-S780 in mode 1), so detect 401/403 dynamically.
+        if self.capabilities.ircc and not self._registration_required:
+            try:
+                await self._update_commands()
+                self._registration_required = False
+            except ClientResponseError as ex:
+                if (
+                    ex.status in (401, 403)
+                    and registration_action is not None
+                    and not self.pin
+                    and not self._registered
+                ):
+                    self._registration_required = True
+                    _LOGGER.debug(
+                        "Command list requires registration on %s (mode %s, HTTP %s)",
+                        self.host,
+                        registration_mode,
+                        ex.status,
+                    )
+                else:
+                    raise
 
         if self.pin and registration_action is not None:
             try:
@@ -328,6 +348,11 @@ class SonyDevice:
     def initialized(self) -> bool:
         """Return true if initialized."""
         return self._initialized
+
+    @property
+    def registration_required(self) -> bool:
+        """Return whether the device requires registration before commands are available."""
+        return self._registration_required
 
     # @staticmethod
     # def discover():
