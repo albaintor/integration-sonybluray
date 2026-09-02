@@ -3,12 +3,20 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from client import SonyBlurayDevice  # noqa: E402
+from config import DeviceInstance  # noqa: E402
 from media_player import features_for  # noqa: E402
-from sonyapilib.device import DeviceCapabilities, DeviceState, SonyDevice, XmlApiObject  # noqa: E402
+from sonyapilib.device import (  # noqa: E402
+    AuthenticationResult,
+    DeviceCapabilities,
+    DeviceState,
+    SonyDevice,
+    XmlApiObject,
+)
 from ucapi.media_player import Features  # noqa: E402
 
 
@@ -111,6 +119,51 @@ class PlaybackFallbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(info.state, DeviceState.PLAYING)
         self.assertIsNone(info.position)
         self.assertIsNone(info.duration)
+
+
+class ReconnectRegistrationTests(unittest.IsolatedAsyncioTestCase):
+    """Verify reconnect registration is limited to APIs that require it."""
+
+    @staticmethod
+    def _config() -> DeviceInstance:
+        return DeviceInstance(
+            id="test-device",
+            name="Sony test",
+            client_name="test-client",
+            address="192.0.2.30",
+        )
+
+    @patch("client.SonyDevice")
+    async def test_legacy_api_does_not_reregister(self, sony_device_class):
+        sony_device = sony_device_class.return_value
+        sony_device.init_device = AsyncMock(return_value=True)
+        sony_device.register = AsyncMock(return_value=AuthenticationResult.SUCCESS)
+        sony_device.capabilities = DeviceCapabilities(ircc=True, cers=True)
+        sony_device.api_version = 1
+        sony_device.actions = {
+            "register": XmlApiObject({"name": "register", "mode": "1", "url": "http://example/register"})
+        }
+
+        device = SonyBlurayDevice(self._config())
+        await device.connect()
+
+        sony_device.register.assert_not_awaited()
+
+    @patch("client.SonyDevice")
+    async def test_mode3_without_pin_can_register_on_reconnect(self, sony_device_class):
+        sony_device = sony_device_class.return_value
+        sony_device.init_device = AsyncMock(return_value=True)
+        sony_device.register = AsyncMock(return_value=AuthenticationResult.SUCCESS)
+        sony_device.capabilities = DeviceCapabilities(ircc=True, cers=True)
+        sony_device.api_version = 3
+        sony_device.actions = {
+            "register": XmlApiObject({"name": "register", "mode": "3", "url": "http://example/register"})
+        }
+
+        device = SonyBlurayDevice(self._config())
+        await device.connect()
+
+        sony_device.register.assert_awaited_once()
 
 
 class RegistrationOrderingTests(unittest.IsolatedAsyncioTestCase):
