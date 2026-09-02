@@ -3,7 +3,9 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from aiohttp import ClientResponseError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -140,6 +142,7 @@ class ReconnectRegistrationTests(unittest.IsolatedAsyncioTestCase):
         sony_device.register = AsyncMock(return_value=AuthenticationResult.SUCCESS)
         sony_device.capabilities = DeviceCapabilities(ircc=True, cers=True)
         sony_device.api_version = 1
+        sony_device.registration_required = False
         sony_device.actions = {
             "register": XmlApiObject({"name": "register", "mode": "1", "url": "http://example/register"})
         }
@@ -150,12 +153,30 @@ class ReconnectRegistrationTests(unittest.IsolatedAsyncioTestCase):
         sony_device.register.assert_not_awaited()
 
     @patch("client.SonyDevice")
+    async def test_legacy_api_reregisters_when_command_list_is_protected(self, sony_device_class):
+        sony_device = sony_device_class.return_value
+        sony_device.init_device = AsyncMock(return_value=True)
+        sony_device.register = AsyncMock(return_value=AuthenticationResult.SUCCESS)
+        sony_device.capabilities = DeviceCapabilities(ircc=True, cers=True)
+        sony_device.api_version = 1
+        sony_device.registration_required = True
+        sony_device.actions = {
+            "register": XmlApiObject({"name": "register", "mode": "1", "url": "http://example/register"})
+        }
+
+        device = SonyBlurayDevice(self._config())
+        await device.connect()
+
+        sony_device.register.assert_awaited_once()
+
+    @patch("client.SonyDevice")
     async def test_mode3_without_pin_can_register_on_reconnect(self, sony_device_class):
         sony_device = sony_device_class.return_value
         sony_device.init_device = AsyncMock(return_value=True)
         sony_device.register = AsyncMock(return_value=AuthenticationResult.SUCCESS)
         sony_device.capabilities = DeviceCapabilities(ircc=True, cers=True)
         sony_device.api_version = 3
+        sony_device.registration_required = True
         sony_device.actions = {
             "register": XmlApiObject({"name": "register", "mode": "3", "url": "http://example/register"})
         }
@@ -167,7 +188,37 @@ class ReconnectRegistrationTests(unittest.IsolatedAsyncioTestCase):
 
 
 class RegistrationOrderingTests(unittest.IsolatedAsyncioTestCase):
-    """Protect mode-3 players from pre-registration command-list requests."""
+    """Protect command-list reads until registration when required."""
+
+    @staticmethod
+    def _http_error(status: int) -> ClientResponseError:
+        request_info = MagicMock()
+        request_info.real_url = "http://example/commands"
+        return ClientResponseError(request_info=request_info, history=(), status=status)
+
+    async def test_mode1_403_marks_registration_required_without_failing_init(self):
+        device = SonyDevice("192.0.2.12", "test-client")
+        register = XmlApiObject({"name": "register", "mode": "1", "url": "http://example/register"})
+        device.actions["register"] = register
+        device.capabilities.ircc = True
+        device._update_service_urls = AsyncMock(return_value=True)
+        device._update_commands = AsyncMock(side_effect=self._http_error(403))
+
+        self.assertTrue(await device.init_device())
+        self.assertTrue(device.registration_required)
+        device._update_commands.assert_awaited_once()
+
+    async def test_mode1_registered_device_reads_commands_without_reregister_flag(self):
+        device = SonyDevice("192.0.2.13", "test-client")
+        register = XmlApiObject({"name": "register", "mode": "1", "url": "http://example/register"})
+        device.actions["register"] = register
+        device.capabilities.ircc = True
+        device._update_service_urls = AsyncMock(return_value=True)
+        device._update_commands = AsyncMock()
+
+        self.assertTrue(await device.init_device())
+        self.assertFalse(device.registration_required)
+        device._update_commands.assert_awaited_once()
 
     async def test_mode3_command_list_is_deferred_until_authenticated(self):
         device = SonyDevice("192.0.2.10", "test-client")
@@ -179,10 +230,12 @@ class RegistrationOrderingTests(unittest.IsolatedAsyncioTestCase):
         device._update_applist = AsyncMock()
 
         self.assertTrue(await device.init_device())
+        self.assertTrue(device.registration_required)
         device._update_commands.assert_not_awaited()
 
         device.pin = "1234"
         self.assertTrue(await device.init_device())
+        self.assertFalse(device.registration_required)
         device._update_commands.assert_awaited_once()
 
     async def test_scalar_auth_cookie_is_a_mapping(self):

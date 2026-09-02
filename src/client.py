@@ -159,7 +159,7 @@ class SonyBlurayDevice:
                 if (
                     self._capabilities.ircc
                     and self._device_config.pin_code is None
-                    and sony_device.api_version >= 3
+                    and (sony_device.api_version >= 3 or sony_device.registration_required)
                     and "register" in sony_device.actions
                 ):
                     register_result = await sony_device.register()
