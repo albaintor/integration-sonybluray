@@ -9,14 +9,60 @@ import logging
 from typing import Any
 
 from ucapi import EntityTypes, MediaPlayer, StatusCodes
-from ucapi.media_player import (Attributes, Commands, DeviceClasses, Features,
-                                Options)
+from ucapi.media_player import Attributes, Commands, DeviceClasses, Features, Options
 
 from client import SonyBlurayDevice
 from config import DeviceInstance, create_entity_id
 from const import SONY_SIMPLE_COMMANDS
+from sonyapilib.device import DeviceCapabilities
 
 _LOG = logging.getLogger(__name__)
+
+
+def features_for(capabilities: DeviceCapabilities) -> list[Features]:
+    """Build media-player features from detected protocol capabilities."""
+    features: list[Features] = []
+    if capabilities.ircc or capabilities.wol:
+        features.append(Features.ON_OFF)
+    if capabilities.ircc:
+        features.append(Features.TOGGLE)
+    if capabilities.ircc:
+        features.extend(
+            [
+                Features.PLAY_PAUSE,
+                Features.STOP,
+                Features.PREVIOUS,
+                Features.NEXT,
+            ]
+        )
+    if capabilities.primary_dlna_transport:
+        features.append(Features.SEEK)
+    if capabilities.media_timing:
+        features.extend([Features.MEDIA_DURATION, Features.MEDIA_POSITION])
+    if capabilities.cers:
+        features.append(Features.MEDIA_TITLE)
+    if capabilities.ircc:
+        features.extend(
+            [
+                Features.DPAD,
+                Features.SETTINGS,
+                Features.EJECT,
+                Features.FAST_FORWARD,
+                Features.REWIND,
+                Features.MENU,
+                Features.CONTEXT_MENU,
+                Features.NUMPAD,
+                Features.CHANNEL_SWITCHER,
+                Features.INFO,
+                Features.AUDIO_TRACK,
+                Features.SUBTITLE,
+                Features.COLOR_BUTTONS,
+                Features.HOME,
+                Features.VOLUME_UP_DOWN,
+                Features.MUTE_TOGGLE,
+            ]
+        )
+    return features
 
 
 class SonyMediaPlayer(MediaPlayer):
@@ -27,35 +73,17 @@ class SonyMediaPlayer(MediaPlayer):
         self._device = device
 
         entity_id = create_entity_id(config_device.id, EntityTypes.MEDIA_PLAYER)
-        features = [
-            Features.ON_OFF,
-            Features.TOGGLE,
-            Features.PLAY_PAUSE,
-            Features.DPAD,
-            Features.SETTINGS,
-            Features.STOP,
-            Features.EJECT,
-            Features.FAST_FORWARD,
-            Features.REWIND,
-            Features.MENU,
-            Features.CONTEXT_MENU,
-            Features.NUMPAD,
-            Features.CHANNEL_SWITCHER,
-            Features.INFO,
-            Features.AUDIO_TRACK,
-            Features.SUBTITLE,
-            Features.COLOR_BUTTONS,
-            Features.HOME,
-            Features.PREVIOUS,
-            Features.NEXT,
-            Features.VOLUME_UP_DOWN,
-            Features.MUTE_TOGGLE,
-        ]
+        features = features_for(device.capabilities)
         attributes = {
             Attributes.STATE: device.state,
         }
+        if Features.MEDIA_POSITION in features:
+            attributes[Attributes.MEDIA_POSITION] = device.media_position
+        if Features.MEDIA_DURATION in features:
+            attributes[Attributes.MEDIA_DURATION] = device.media_duration
 
-        options = {Options.SIMPLE_COMMANDS: list(SONY_SIMPLE_COMMANDS.keys())}
+        simple_commands = list(SONY_SIMPLE_COMMANDS.keys()) if device.capabilities.ircc else []
+        options = {Options.SIMPLE_COMMANDS: simple_commands}
         # pylint: disable=R0801
         super().__init__(
             entity_id,
@@ -66,7 +94,7 @@ class SonyMediaPlayer(MediaPlayer):
             options=options,
         )
 
-    # pylint: disable=R0801,R0911
+    # pylint: disable=R0801,R0911,R0915
     async def command(
         self,
         cmd_id: str,
@@ -108,6 +136,11 @@ class SonyMediaPlayer(MediaPlayer):
             return await self._device.play_pause()
         if cmd_id == Commands.STOP:
             return await self._device.stop()
+        if cmd_id == Commands.SEEK:
+            position = (params or {}).get(Attributes.MEDIA_POSITION)
+            if not isinstance(position, (int, float)):
+                return StatusCodes.BAD_REQUEST
+            return await self._device.seek(int(position))
         if cmd_id == Commands.EJECT:
             return await self._device.eject()
         if cmd_id == Commands.FAST_FORWARD:
@@ -198,6 +231,15 @@ class SonyMediaPlayer(MediaPlayer):
         if Attributes.STATE in update:
             state = update[Attributes.STATE]
             attributes = self._key_update_helper(Attributes.STATE, state, attributes)
+
+        for key in (
+            Attributes.MEDIA_POSITION,
+            Attributes.MEDIA_POSITION_UPDATED_AT,
+            Attributes.MEDIA_DURATION,
+            Attributes.MEDIA_TITLE,
+        ):
+            if key in update:
+                attributes = self._key_update_helper(key, update[key], attributes)
 
         _LOG.debug("MediaPlayer update attributes %s -> %s", update, attributes)
         return attributes

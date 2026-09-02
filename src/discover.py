@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import httpx
+
 # import netifaces
 from defusedxml import DefusedXmlException
 from defusedxml.ElementTree import ParseError, fromstring
@@ -176,6 +177,7 @@ async def async_send_ssdp_broadcast_ip(ip_addr: str) -> Set[str]:
 
 
 def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
+    # pylint: disable=too-many-statements
     """
     Evaluate SCPD XML.
 
@@ -226,13 +228,37 @@ def evaluate_scpd_xml(url: str, response: Response) -> Optional[Dict]:
         device["modelName"] = device_xml.find(SCPD_MODELNAME).text
         device["friendlyName"] = device_xml.find(SCPD_FRIENDLYNAME).text
 
-        if device_xml.find(AV_IRCC_TAG):
+        protocols: Set[str] = set()
+        if device_xml.find(AV_IRCC_TAG) is not None:
             device["irccPort"] = device.get("port", 0)
+            protocols.add("ircc")
+        if device_xml.find(f".//{AV_XMLNS}X_CERS_ActionList_URL") is not None:
+            protocols.add("cers")
+        if device_xml.find(f".//{AV_XMLNS}X_ScalarWebAPI_DeviceInfo") is not None:
+            protocols.add("scalar")
         # Not working in certain cases which needs a second way
-        if device_xml.find(AV_DMR_TAG):
+        if device_xml.find(AV_DMR_TAG) is not None:
             device["dmrPort"] = device.get("port", 0)
+            protocols.add("dlna")
         elif device_xml.findall(f"av:{AV_DMR_TAG2}", namespaces={"av": "urn:schemas-sony-com:av"}):
             device["dmrPort"] = device.get("port", 0)
+            protocols.add("dlna")
+
+        for element in device_xml.iter():
+            name = element.tag.rsplit("}", 1)[-1].casefold()
+            value = (element.text or "").strip()
+            if name in {"servicetype", "serviceid"} and "AVTransport" in value:
+                device["dmrPort"] = device.get("port", 0)
+                protocols.add("dlna")
+            if name in {"magicpacketwakesupported", "x_magicpacketwakesupported"} and value.casefold() in {
+                "1",
+                "true",
+                "yes",
+                "supported",
+            }:
+                protocols.add("wol")
+
+        device["protocols"] = sorted(protocols)
 
         return device
     except (

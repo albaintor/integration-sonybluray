@@ -1,4 +1,4 @@
-# GitHub Action to build a self-contained binary of the Android TV Python driver
+# GitHub Action to build a self-contained binary of the Sony Blu-ray Python driver
 ---
 name: "Build & Release"
 
@@ -15,15 +15,18 @@ env:
   INTG_NAME: sonybluray
   HASH_FILENAME: uc-intg-sonybluray.hash
   # Python version to use in the builder image. See https://hub.docker.com/r/unfoldedcircle/r2-pyinstaller for possible versions.
-  PYTHON_VER: 3.11.12-0.3.0
+  PYTHON_VER: 3.11.13-0.5.0
 
 jobs:
   build:
-    # using ubuntu-24.04: Package 'qemu' has no installation candidate
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    environment: Ubuntu
+    strategy:
+      matrix:
+        platform: [aarch64]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # History of 200 should be more than enough to calculate commit count since last release tag.
           fetch-depth: 200
@@ -32,7 +35,6 @@ jobs:
         run: |
           git fetch origin +refs/tags/*:refs/tags/*
           echo VERSION="v$(jq .version -r driver.json)" >> $GITHUB_ENV
-        # echo "VERSION=$(git describe --match "v[0-9]*" --tags HEAD --always)" >> $GITHUB_ENV
 
       - name: Verify driver.json version for release build
         if: contains(github.ref, 'tags/v')
@@ -43,11 +45,16 @@ jobs:
             exit 1
           fi
 
-      - name: Prepare
+      - name: Prepare for aarch64 build
+        if: matrix.platform == 'aarch64'
         run: |
-          sudo apt-get update && sudo apt-get install -y qemu binfmt-support qemu-user-static
+          sudo apt-get install -y qemu-system-arm binfmt-support qemu-user-static
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          echo "Starting pyinstaller build"
+
+      - name: Build for aarch64
+        if: matrix.platform == 'aarch64'
+        run: |
+          echo "Starting pyinstaller build for aarch64"
           docker run --rm --name builder \
             --platform=aarch64 \
             --user=$(id -u):$(id -g) \
@@ -56,82 +63,75 @@ jobs:
             bash -c \
             "cd /workspace && \
               python -m pip install -r requirements.txt && \
-              pyinstaller --clean --onedir --name driver src/driver.py"
+              pyinstaller --collect-submodules zeroconf --clean --onedir --name driver src/driver.py"
 
       - name: Add version
         run: |
           DRIVER_VERSION="v$(jq .version -r driver.json)"
           mkdir -p artifacts/bin
           cd artifacts
-          # echo ${{ env.VERSION }} > version.txt
           echo $DRIVER_VERSION > version.txt
-          
+
       - name: Prepare artifacts
         shell: bash
         run: |
           cp -r dist/driver/* artifacts/bin
           cp driver.json artifacts/
           cp sony.png artifacts/
-          # cp build/driver/xref-driver.html artifacts/
-          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-aarch64" >> $GITHUB_ENV
-          
+          echo "ARTIFACT_NAME=uc-intg-${{ env.INTG_NAME }}-${{ env.VERSION }}-${{ matrix.platform }}" >> $GITHUB_ENV
+
       - name: Create upload artifact
         shell: bash
-        run: | 
+        run: |
           tar czvf ${{ env.ARTIFACT_NAME }}.tar.gz -C ${GITHUB_WORKSPACE}/artifacts .
           ls -lah
-          
-      - uses: actions/upload-artifact@v4
+
+      - uses: actions/upload-artifact@v7
         id: upload_artifact
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACT_NAME }}.tar.gz
           if-no-files-found: error
           retention-days: 3
-            
+
   release:
     name: Create Release
     if: github.ref == 'refs/heads/main' || contains(github.ref, 'tags/v')
-    # using ubuntu-24.04: Package 'qemu' has no installation candidate
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build]
 
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Extract build archives from downloaded files
         run: |
           ls -R
-          # extract tar.gz build archives from downloaded artifacts
-          # (wrapped in tar from actions/upload-artifact, then extracted into a directory by actions/download-artifact)
-          for D in * 
+          # Extract tar.gz build archives from downloaded artifacts.
+          for D in *
             do if [ -d "${D}" ]; then
               mv $D/* ./
             fi
           done;
 
-      # Use a common timestamp for all matrix build artifacts
       - name: Get timestamp
         run: |
           echo "TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
 
-      # Add timestamp to development builds
       - name: Create GitHub development build archives
         if: "!contains(github.ref, 'tags/v')"
         run: |
-          # append timestamp
           for filename in *.tar.gz; do mv $filename "$(basename $filename .tar.gz)-${{ env.TIMESTAMP }}.tar.gz"; done;
           for filename in *.tar.gz; do echo "sha256  `sha256sum $filename`" >> ${{ env.HASH_FILENAME }}; done;
 
       - name: Create Pre-Release
-        uses: "marvinpinto/action-automatic-releases@latest"
+        uses: softprops/action-gh-release@v2
         if: "!contains(github.ref, 'tags/v')"
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag_name: "latest"
           prerelease: true
-          title: "Development Build"
+          name: "Development Build"
           files: |
             *.tar.gz
             ${{ env.HASH_FILENAME }}
@@ -142,11 +142,11 @@ jobs:
           for filename in *.tar.gz; do echo "sha256  `sha256sum $filename`" >> ${{ env.HASH_FILENAME }}; done;
 
       - name: Create Release
-        uses: "marvinpinto/action-automatic-releases@latest"
+        uses: softprops/action-gh-release@v2
         if: "contains(github.ref, 'tags/v')"
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
             *.tar.gz
-            ${{ env.HASH_FILENAME }}            
+            ${{ env.HASH_FILENAME }}

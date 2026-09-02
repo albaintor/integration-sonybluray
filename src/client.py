@@ -4,14 +4,14 @@ Client handling of the integration driver.
 
 :license: Mozilla Public License Version 2.0, see LICENSE for more details.
 """
+
 import asyncio
 import logging
 from asyncio import AbstractEventLoop, CancelledError, Lock
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 from functools import wraps
-from typing import (Any, Awaitable, Callable, Concatenate, Coroutine,
-                    ParamSpec, TypeVar)
+from typing import Any, Awaitable, Callable, Concatenate, Coroutine, ParamSpec, TypeVar
 
 import ucapi.media_player
 from aiohttp import ClientOSError
@@ -19,7 +19,7 @@ from pyee.asyncio import AsyncIOEventEmitter
 from ucapi.media_player import Attributes, States
 
 from config import DeviceInstance
-from sonyapilib.device import AuthenticationResult, DeviceState, SonyDevice
+from sonyapilib.device import AuthenticationResult, DeviceCapabilities, DeviceState, SonyDevice
 
 _LOGGER = logging.getLogger(__name__)
 ERROR_OS_WAIT = 0.5
@@ -44,8 +44,8 @@ CONNECTION_RETRIES = 10
 # pylint: disable=W0212
 # noqa: D202
 def cmd_wrapper(
-    func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[ucapi.StatusCodes | list]],
-) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes | list]]:
+    func: Callable[Concatenate[_SonyBlurayDeviceT, _P], Awaitable[Any]],
+) -> Callable[Concatenate[_SonyBlurayDeviceT, _P], Coroutine[Any, Any, ucapi.StatusCodes]]:
     """Catch command exceptions."""
 
     @wraps(func)
@@ -108,11 +108,17 @@ class SonyBlurayDevice:
         self._timeout = timeout
         self.refresh_frequency = timedelta(seconds=refresh_frequency)
         self._state = States.UNKNOWN
+        if device_config.protocols:
+            self._capabilities = DeviceCapabilities.from_protocols(device_config.protocols)
+        else:
+            self._capabilities = DeviceCapabilities.legacy_defaults()
         self._event_loop: AbstractEventLoop = asyncio.get_event_loop() or asyncio.get_running_loop()
         self.events = AsyncIOEventEmitter(self._event_loop)
         self._sony_device: SonyDevice | None = None
         self._media_position = 0
         self._media_duration = 0
+        self._media_source: str | None = None
+        self._media_title: str | None = None
         self._update_task = None
         self._update_lock = Lock()
         self._connected = False
@@ -128,7 +134,7 @@ class SonyBlurayDevice:
 
         if self._device_config.password_key == "":
             self._device_config.password_key = None
-        self._sony_device = SonyDevice(
+        sony_device = SonyDevice(
             host=self._device_config.address,
             app_port=self._device_config.app_port,
             ircc_port=self._device_config.ircc_port,
@@ -136,26 +142,32 @@ class SonyBlurayDevice:
             psk=self._device_config.password_key,
             nickname=self._device_config.client_name,
         )
-        self._sony_device.pin = self._device_config.pin_code
-        self._sony_device.mac = self._device_config.mac_address
-        if self._device_config.pin_code is None:
-            register_result = await self._sony_device.register()
-            if register_result == AuthenticationResult.PIN_NEEDED:
-                raise ConnectionError("PIN code needed")
+        self._sony_device = sony_device
+        sony_device.pin = self._device_config.pin_code
+        sony_device.mac = self._device_config.mac_address
         try:
-            # response = self._sony_device._send_http(self._sony_device.dmr_url, HttpMethod.GET)
-            # if response:
-            #     self._connected = True
             _LOGGER.debug("Init device")
-            if not await self._sony_device.init_device():
+            initialized = await sony_device.init_device()
+            if not initialized:
                 _LOGGER.debug("Sony device initialization error, retry in case where network was not ready")
                 await asyncio.sleep(ERROR_OS_WAIT)
-                await self._sony_device.init_device()
+                initialized = await sony_device.init_device()
+
+            if initialized:
+                self._capabilities = sony_device.capabilities
+                self._device_config.protocols = self._capabilities.protocols
+                if (
+                    self._capabilities.ircc
+                    and self._device_config.pin_code is None
+                    and sony_device.api_version >= 3
+                    and "register" in sony_device.actions
+                ):
+                    register_result = await sony_device.register()
+                    if register_result == AuthenticationResult.PIN_NEEDED:
+                        raise ConnectionError("PIN code needed")
         # pylint: disable=W0718
         except Exception as ex:
             _LOGGER.debug("Sony device connection error, waiting next call %s", ex)
-        # except requests.exceptions.RequestException as exc:
-        #     _LOGGER.error("Failed to get DMR: %s: %s", type(exc), exc)
 
         self.events.emit(Events.CONNECTED, self.id)
         if self._device_config.polling:
@@ -202,53 +214,80 @@ class SonyBlurayDevice:
         self._update_task = None
 
     async def update(self, deferred_update=0):
+        # pylint: disable=too-many-statements
         """Update data."""
         if deferred_update > 0:
             await asyncio.sleep(deferred_update)
         if self._update_lock.locked():
             return
-        await self._update_lock.acquire()
-        update_data = {}
+
+        update_data: dict[str, Any] = {}
         current_state = self.state
-        try:
-            # _LOGGER.debug("Refresh Sony data")
-            if self.state in [States.OFF, States.UNKNOWN]:
-                await self.connect()
+        current_position = self._media_position
+        current_duration = self._media_duration
+        current_source = self._media_source
+        current_title = self._media_title
 
-            power_status = await self._sony_device.get_power_status()
-            if not power_status:
-                self._state = States.OFF
-            else:
-                self._state = States.ON
-                device_state = await self._sony_device.get_status()
-                if device_state == DeviceState.OFF:
+        async with self._update_lock:
+            try:
+                if self.state in [States.OFF, States.UNKNOWN]:
+                    await self.connect()
+
+                sony_device = self._require_device()
+                power_status = await sony_device.get_power_status()
+                if not power_status:
                     self._state = States.OFF
-                elif device_state == DeviceState.STOPPED:
-                    self._state = States.ON
+                    self._media_position = 0
+                    self._media_duration = 0
+                    self._media_source = None
+                    self._media_title = None
                 else:
-                    self._state = States.PLAYING
+                    playback_info = await sony_device.get_playback_info()
+                    if playback_info.state == DeviceState.OFF:
+                        self._state = States.OFF
+                    elif playback_info.state == DeviceState.PLAYING:
+                        self._state = States.PLAYING
+                    elif playback_info.state == DeviceState.PAUSED:
+                        self._state = States.PAUSED
+                    else:
+                        self._state = States.ON
 
-            # playback_info = self._sony_device.get_playing_status()
-            # NO_MEDIA_PRESENT
-            # if playback_info == "PLAYING":
-            #     self._state = States.PLAYING
-            # elif playback_info == "PAUSED_PLAYBACK":
-            #     self._state = States.PAUSED
-        # pylint: disable=W0718
-        except Exception:
-            self._state = States.OFF
+                    self._media_position = playback_info.position or 0
+                    self._media_duration = playback_info.duration or 0
+                    self._media_source = playback_info.source
+                    self._media_title = playback_info.title
+            # pylint: disable=W0718
+            except Exception as ex:
+                _LOGGER.debug("Cannot update Sony device %s: %s", self.id, ex)
+                self._state = States.OFF
 
-        self._update_lock.release()
         if self.state != current_state:
             update_data[Attributes.STATE] = self.state
+        if self._media_position != current_position:
+            update_data[Attributes.MEDIA_POSITION] = self._media_position
+            update_data[Attributes.MEDIA_POSITION_UPDATED_AT] = datetime.now(timezone.utc).isoformat()
+        if self._media_duration != current_duration:
+            update_data[Attributes.MEDIA_DURATION] = self._media_duration
+        if self._media_source != current_source and self._media_source is not None:
+            update_data[Attributes.SOURCE] = self._media_source
+        if self._media_title != current_title and self._media_title is not None:
+            update_data[Attributes.MEDIA_TITLE] = self._media_title
 
         if update_data:
             self.events.emit(Events.UPDATE, self.id, update_data)
 
     @property
-    def attributes(self) -> dict[str, any]:
+    def attributes(self) -> dict[str, Any]:
         """Return the device attributes."""
-        updated_data = {Attributes.STATE: self.state}
+        updated_data = {
+            Attributes.STATE: self.state,
+            Attributes.MEDIA_POSITION: self.media_position,
+            Attributes.MEDIA_DURATION: self.media_duration,
+        }
+        if self._media_source is not None:
+            updated_data[Attributes.SOURCE] = self._media_source
+        if self._media_title is not None:
+            updated_data[Attributes.MEDIA_TITLE] = self._media_title
         return updated_data
 
     @property
@@ -269,9 +308,18 @@ class SonyBlurayDevice:
     @property
     def has_media_state(self):
         """Return true if polling is enabled (state available)."""
-        if self._device_config.polling:
-            return True
-        return False
+        return self._device_config.polling and self.capabilities.media_state
+
+    @property
+    def capabilities(self) -> DeviceCapabilities:
+        """Return configured or detected network capabilities."""
+        return self._capabilities
+
+    def _require_device(self) -> SonyDevice:
+        """Return the active protocol client or fail with an explicit connection error."""
+        if self._sony_device is None:
+            raise ConnectionError("Sony device is not connected")
+        return self._sony_device
 
     @property
     def media_duration(self):
@@ -321,14 +369,16 @@ class SonyBlurayDevice:
 
     async def _deferred_wakeonlan(self, delay: float):
         await asyncio.sleep(delay)
-        self._sony_device.wakeonlan()
+        self._require_device().wakeonlan()
 
     async def turn_on(self) -> ucapi.StatusCodes:
         """Turn on the device."""
         _LOGGER.debug("Turn on (state %s)", self.state)
         try:
-            await self._sony_device.power(True)
-            asyncio.create_task(self._deferred_wakeonlan(ERROR_OS_WAIT))
+            sony_device = self._require_device()
+            await sony_device.power(True)
+            if sony_device.mac:
+                asyncio.create_task(self._deferred_wakeonlan(ERROR_OS_WAIT))
             if not self._device_config.polling:
                 self._event_loop.create_task(self.update(10))
                 self._event_loop.create_task(self.update(20))
@@ -363,10 +413,23 @@ class SonyBlurayDevice:
 
     @cmd_wrapper
     async def play_pause(self):
-        """Toggle play/pause."""
+        """Toggle play/pause using the protocol semantics of the device."""
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
-        return await self._sony_device.pause()
+
+        sony_device = self._require_device()
+        # Legacy Sony IRCC players expose a dedicated Pause remote key which
+        # behaves as the physical Play/Pause toggle. Their CERS status is not
+        # reliable enough to choose between Play and Pause (notably UBP-X700
+        # with UHD Blu-ray discs, where getStatus only reports status=disc).
+        if self.capabilities.ircc:
+            return await sony_device.pause()
+
+        # DLNA-only players expose separate UPnP Play and Pause actions, so a
+        # state-based toggle is required for that transport.
+        if self.state == States.PLAYING:
+            return await sony_device.pause()
+        return await sony_device.play()
 
     @cmd_wrapper
     async def play(self):
@@ -388,6 +451,11 @@ class SonyBlurayDevice:
         if not self._device_config.polling:
             self._event_loop.create_task(self.update())
         await self._sony_device.stop()
+
+    @cmd_wrapper
+    async def seek(self, position: int):
+        """Seek DLNA playback to a position in seconds."""
+        await self._sony_device.seek(position)
 
     @cmd_wrapper
     async def eject(self):
