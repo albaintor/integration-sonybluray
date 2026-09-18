@@ -1,4 +1,4 @@
-name: Publish temporary release
+name: Publish temporary tag
 
 on:
   push:
@@ -9,24 +9,16 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    if: github.event.head_commit.message == 'chore: publish release 1.7.0'
+  tag:
+    if: github.event.head_commit.message == 'chore: publish tag v1.7.0'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create tag
+      - name: Create release tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "v1.7.0" "73398cbd7b99888211c73e85a92a2191ed86c7e7"
           git push origin "v1.7.0"
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "v1.7.0" \
-            --target "73398cbd7b99888211c73e85a92a2191ed86c7e7" \
-            --title "v1.7.0" \
-            --notes "Fix setup flow so starting or aborting setup no longer clears an existing shared configuration. Configuration is only cleared through the explicit reset action."
