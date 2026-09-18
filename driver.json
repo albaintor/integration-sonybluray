@@ -1,8 +1,10 @@
 {
 	"driver_id": "sonybluray_driver",
-	"version": "1.6.0",
+	"version": "1.7.0",
 	"min_core_api": "0.20.0",
-	"name": { "en": "Sony Bluray" },
+	"name": {
+		"en": "Sony Bluray"
+	},
 	"icon": "custom:sony.png",
 	"description": {
 		"en": "Control your Sony Bluray with Remote Two/3.",
@@ -13,8 +15,8 @@
 		"name": "Albaintor",
 		"email": "albaintor@github.com",
 		"url": "https://github.com/albaintor"
-  	},
-  	"home_page": "https://github.com/albaintor/integration-sonybluray",
+	},
+	"home_page": "https://github.com/albaintor/integration-sonybluray",
 	"setup_data_schema": {
 		"title": {
 			"en": "Integration setup",
@@ -33,7 +35,7 @@
 					"label": {
 						"value": {
 							"en": "The integration will discover your Sony Bluray on your network. Please make sure that your Sony Bluray is powered on and that no old pairing request is shown.\nIf pairing continuously fails, restart your Sony Bluray and try again.",
-                            "fr": "L'intégration découvrira votre lecteur Bluray Sony sur votre réseau.\nSi l'appairage échoue systématiquement, redémarrez votre lecteur Sony Bluray et réessayez"
+							"fr": "L'intégration découvrira votre lecteur Bluray Sony sur votre réseau.\nSi l'appairage échoue systématiquement, redémarrez votre lecteur Sony Bluray et réessayez"
 						}
 					}
 				}
