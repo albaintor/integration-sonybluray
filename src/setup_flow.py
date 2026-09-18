@@ -258,8 +258,8 @@ async def handle_driver_setup(
             ],
         )
 
-    # Initial setup, make sure we have a clean configuration
-    config.devices.clear()  # triggers device instance removal
+    # Initial setup. Preserve any existing configuration: externally hosted integrations
+    # can be shared by multiple remotes. Only an explicit reset may clear devices.
     _setup_step = SetupSteps.WORKFLOW_MODE
     return RequestUserInput(
         {"en": "Configuration mode", "de": "Konfigurations-Modus"},
